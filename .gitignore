@@ -1,0 +1,6 @@
+data/
+__pycache__/
+models/
+train1/
+weights/
+__pycache__/
