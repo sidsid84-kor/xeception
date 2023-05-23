@@ -50,15 +50,15 @@ transformation = transforms.Compose([
                     transforms.Resize(IMG_SIZE)
 ])
 
-img_dir = './data/images'
+img_dir = './data/images2'
 
-train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path='./data/images/result.csv',img_dir=img_dir, train_ratio=TRAIN_RATIO, randoms_state=42)
+train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path='dataset.csv',img_dir=img_dir, train_ratio=TRAIN_RATIO, randoms_state=42)
 
 
-train_set = CustomDataset(train_df,num_classes=NUM_CLS, image_dir='./data/images', class_list= cls_list ,img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
+train_set = CustomDataset(train_df,num_classes=NUM_CLS, image_dir='./data/images2', class_list= cls_list ,img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
 train_set.transforms = transformation
 
-val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir='./data/images', class_list= cls_list, img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
+val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir='./data/images2', class_list= cls_list, img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
 val_set.transforms = transformation
 
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=8)
