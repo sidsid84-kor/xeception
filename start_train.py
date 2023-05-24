@@ -37,6 +37,24 @@ from dataset import *
 IMG_SIZE = 640
 BATCH_SIZE = 32
 TRAIN_RATIO = 0.2
+IMG_DIR = './data/images2'
+CSV_PATH = 'dataset.csv'
+SAVE_FOLDER_NAME = 'train_' #folder name - > models/train_0/ save weights and result
+
+
+def create_directory():
+    i = 1
+    while True:
+        dir_name = os.path.join('models/'+SAVE_FOLDER_NAME+ str(i) +'/')
+        if not os.path.exists(dir_name):
+            os.makedirs(dir_name)
+            os.makedirs(dir_name+'/result')
+            return dir_name
+            break
+        i += 1
+
+save_path = create_directory()
+
 
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
@@ -53,16 +71,13 @@ transformation = transforms.Compose([
 ])
 
 
-
-img_dir = './data/images2'
-
-train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path='dataset.csv',img_dir=img_dir, train_ratio=TRAIN_RATIO, randoms_state=42)
+train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path=CSV_PATH,img_dir=IMG_DIR, train_ratio=TRAIN_RATIO, randoms_state=42)
 
 
-train_set = CustomDataset(train_df,num_classes=NUM_CLS, image_dir='./data/images2', class_list= cls_list ,img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
+train_set = CustomDataset(train_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_list= cls_list ,img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
 train_set.transforms = transformation
 
-val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir='./data/images2', class_list= cls_list, img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
+val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_list= cls_list, img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
 val_set.transforms = transformation
 
 
@@ -72,12 +87,8 @@ if torch.cuda.device_count() > 1:
     print("Let's use",num_device, "GPUs!")
     model = nn.DataParallel(model)
 
-
-
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=4*num_device)
 val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE//num_device), num_workers=4)
-
-
 
 
 # define loss function, optimizer, lr_scheduler
@@ -86,14 +97,14 @@ opt = optim.Adam(model.parameters(), lr=0.001)
 lr_scheduler = ReduceLROnPlateau(opt, mode='min', factor=0.1, patience=50)
 
 params_train = {
-    'num_epochs':500,
+    'num_epochs':1,
     'optimizer':opt,
     'loss_func':loss_func,
     'train_dl':train_loader,
     'val_dl':val_loader,
     'sanity_check':False,
     'lr_scheduler':lr_scheduler,
-    'path2weights':'./models/',
+    'path2weights':save_path,
 }
 
 summary(model, (3, IMG_SIZE, IMG_SIZE), device=device.type)
@@ -106,6 +117,6 @@ lossdf = pd.DataFrame(loss_hist)
 accdf = pd.DataFrame(metric_hist)
 acc_clsdf = pd.DataFrame(metric_cls_hist)
 
-lossdf.to_csv('loss.csv')
-accdf.to_csv('acc.csv')
-acc_clsdf.to_csv('cls_acc.csv')
+lossdf.to_csv(save_path + 'result/loss.csv')
+accdf.to_csv(save_path + 'result/acc.csv')
+acc_clsdf.to_csv(save_path + 'result/cls_acc.csv')
