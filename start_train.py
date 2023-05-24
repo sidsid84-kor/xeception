@@ -69,8 +69,6 @@ def create_directory():
 
 save_path = create_directory()
 
-
-
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
 
@@ -95,14 +93,19 @@ val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_lis
 val_set.transforms = transformation
 
 
-model = Xception(num_classes=NUM_CLS).to(device)
+model = Xception(num_classes=NUM_CLS)
+
+if weight_path != "None":
+    model.load_state_dict(torch.load(weight_path, map_location=device))
+
+model = model.to(device=device)
+
 if torch.cuda.device_count() > 1:
     num_device = torch.cuda.device_count()
     print("Let's use",num_device, "GPUs!")
     model = nn.DataParallel(model)
 
-if weight_path != "None":
-    model.load_state_dict(torch.load(weight_path))
+
 
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=4*num_device)
 val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE//num_device), num_workers=4)

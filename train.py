@@ -127,20 +127,6 @@ def metric_batch_multi_label(output, target, device):
     return class_accuracies, overall_accuracy
 
 
-# def metric_batch_multi_label(output, target):
-#     # output: [batch_size, num_classes], target: [batch_size, num_classes]
-    
-#     pred = output.sigmoid() >= 0.5 # 이진분류: sigmoid 함수를 사용하여 확률 값을 0~1 사이로 만들고, 0.5 이상인 경우 1, 미만인 경우 0으로 예측합니다.
-#     print('pred',pred)
-#     print('target', target)
-#     corrects = pred.eq(target).sum(dim=0).float() # 정답과 예측값이 일치하는 개수를 계산합니다.
-#     print('corrects',corrects)
-#     total = target.size(0)
-#     print('total',total)
-#     print('result',(corrects / total).mean().item())
-#     return (corrects / total).mean().item()
-
-
 def loss_batch_multi_label(loss_func, output, target, device, opt=None):
     # output: [batch_size, num_classes], target: [batch_size, num_classes]
     loss_b = loss_func(output, target)
