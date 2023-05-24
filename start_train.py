@@ -33,12 +33,14 @@ from train import *
 from dataset import *
 
 
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-print(device)
 
 IMG_SIZE = 640
 BATCH_SIZE = 32
 TRAIN_RATIO = 0.2
+
+
+device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+print(device)
 
 torch.cuda.reset_max_memory_allocated(device=None)
 torch.cuda.empty_cache()
@@ -49,6 +51,8 @@ transformation = transforms.Compose([
                     transforms.ToTensor(),
                     transforms.Resize(IMG_SIZE)
 ])
+
+
 
 img_dir = './data/images2'
 
@@ -61,14 +65,20 @@ train_set.transforms = transformation
 val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir='./data/images2', class_list= cls_list, img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
 val_set.transforms = transformation
 
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=8)
-val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE*TRAIN_RATIO), num_workers=4)
-
 
 model = Xception2x1ch(num_classes=NUM_CLS).to(device)
 if torch.cuda.device_count() > 1:
-    print("Let's use", torch.cuda.device_count(), "GPUs!")
+    num_device = torch.cuda.device_count()
+    print("Let's use",num_device, "GPUs!")
     model = nn.DataParallel(model)
+
+
+
+train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=4*num_device)
+val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE//num_device), num_workers=4)
+
+
+
 
 # define loss function, optimizer, lr_scheduler
 loss_func = nn.MultiLabelSoftMarginLoss()

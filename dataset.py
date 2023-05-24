@@ -5,12 +5,36 @@ import pandas as pd
 import numpy as np
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
+from PIL import Image
+import tqdm
 
+#image broken check
+def check_jpeg_eoi(file_path):
+    with open(file_path, 'rb') as f:
+        f.seek(-2, 2) # 파일의 끝에서 두 바이트 전으로 이동합니다.
+        return f.read() == b'\xff\xd9'
+    
+
+def is_image_valid(image_path):
+    try:
+        img = Image.open(image_path) # 이미지를 열어봅니다.
+        img.verify() # verify() 메소드는 파일이 손상되었는지 확인합니다.
+        return True
+    except (IOError, SyntaxError) as e:
+        print('Invalid image: ', image_path, '\n'+ e) # 손상된 이미지에 대한 에러 메시지를 출력합니다.
+        return False
+
+#image validation(exist and broken file)
 def validate_dataset(df, img_dir):
     count = 0
-    for rows in df.itertuples():
+    df_bar = tqdm.tqdm(df.itertuples(), desc="validating all images", total=len(df))
+    for rows in df_bar:
         if os.path.isfile(img_dir+'/'+ rows.id):
-            continue
+            if is_image_valid(img_dir+'/'+ rows.id) and check_jpeg_eoi(img_dir+'/'+ rows.id):
+                continue
+            else:
+                count += 1
+                df.drop(df[df['id'] == rows.id].index, inplace=True)
         else:
             count += 1
             df.drop(df[df['id'] == rows.id].index, inplace=True)
