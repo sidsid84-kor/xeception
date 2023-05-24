@@ -35,6 +35,7 @@ from dataset import *
 
 
 IMG_SIZE = 640
+EPOCH = 200
 BATCH_SIZE = 32
 TRAIN_RATIO = 0.2
 IMG_DIR = './data/images2'
@@ -81,7 +82,7 @@ val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_lis
 val_set.transforms = transformation
 
 
-model = Xception2x1ch(num_classes=NUM_CLS).to(device)
+model = Xception(num_classes=NUM_CLS).to(device)
 if torch.cuda.device_count() > 1:
     num_device = torch.cuda.device_count()
     print("Let's use",num_device, "GPUs!")
@@ -97,7 +98,7 @@ opt = optim.Adam(model.parameters(), lr=0.001)
 lr_scheduler = ReduceLROnPlateau(opt, mode='min', factor=0.1, patience=50)
 
 params_train = {
-    'num_epochs':1,
+    'num_epochs':EPOCH,
     'optimizer':opt,
     'loss_func':loss_func,
     'train_dl':train_loader,
