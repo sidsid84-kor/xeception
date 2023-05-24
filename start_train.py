@@ -33,15 +33,28 @@ from train import *
 from dataset import *
 
 
+import argparse
 
-IMG_SIZE = 640
-EPOCH = 200
-BATCH_SIZE = 32
-TRAIN_RATIO = 0.2
-IMG_DIR = './data/images2'
-CSV_PATH = 'dataset.csv'
-SAVE_FOLDER_NAME = 'train_' #folder name - > models/train_0/ save weights and result
+parser = argparse.ArgumentParser(description='parameters')
+parser.add_argument('--img_size', type=int, default=640, help='img_size')
+parser.add_argument('--epoch', type=int, default=200, help='epoch')
+parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
+parser.add_argument('--test_ratio', type=float, default=0.2, help='test_ratio')
+parser.add_argument('--img_dir', type=str, default='./data/images2', help='img_dri')
+parser.add_argument('--csv_path', type=str, default='dataset.csv', help='csv_path')
+parser.add_argument('--train_name', type=str, default="train_", help='train name')
+parser.add_argument('--weight', type=str, default="None", help='pretrained_weight_path')
 
+args = parser.parse_args()
+
+IMG_SIZE = args.img_size
+EPOCH = args.epoch
+BATCH_SIZE = args.batch_size
+TRAIN_RATIO = args.test_ratio
+IMG_DIR = args.img_dir
+CSV_PATH = args.csv_path
+SAVE_FOLDER_NAME = args.train_name #folder name - > models/train_0/ save weights and result
+weight_path = args.weight
 
 def create_directory():
     i = 1
@@ -87,6 +100,9 @@ if torch.cuda.device_count() > 1:
     num_device = torch.cuda.device_count()
     print("Let's use",num_device, "GPUs!")
     model = nn.DataParallel(model)
+
+if weight_path != "None":
+    model.load_state_dict(torch.load(weight_path))
 
 train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=4*num_device)
 val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE//num_device), num_workers=4)
