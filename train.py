@@ -2,6 +2,7 @@ import time
 import copy
 import torch
 import os
+import pandas as pd
 import tqdm
 from torchmetrics.classification import MultilabelAccuracy
 
@@ -107,7 +108,13 @@ def train_val(model, device, params):
             model.load_state_dict(best_model_wts)
 
         print(f'train loss: {train_loss:.6f}, val loss: {val_loss:.6f}, accuracy: {val_metric:.2f},cls_acc : {val_cls_metric}, time: {(time.time()-start_time)/60:.4f} min')
-        
+        lossdf = pd.DataFrame(loss_history)
+        accdf = pd.DataFrame(metric_history)
+        acc_clsdf = pd.DataFrame(metric_cls_history)
+
+        lossdf.to_csv(path2weights + 'result/loss.csv')
+        accdf.to_csv(path2weights + 'result/acc.csv')
+        acc_clsdf.to_csv(path2weights + 'result/cls_acc.csv')
 
     model.load_state_dict(best_model_wts)
     return model, loss_history, metric_history, metric_cls_history

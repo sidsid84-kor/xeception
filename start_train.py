@@ -98,12 +98,23 @@ model = Xception(num_classes=NUM_CLS)
 if weight_path != "None":
     model.load_state_dict(torch.load(weight_path, map_location=device))
 
-model = model.to(device=device)
+num_devices = torch.cuda.device_count()
+device_idx = []
+for i in range(num_devices):
+    if torch.cuda.get_device_name(i) == "NVIDIA DGX Display":
+        print(f"Device is not using : {torch.cuda.get_device_name(i)}")
+    else:
+        device_idx.append(i)
 
 if torch.cuda.device_count() > 1:
     num_device = torch.cuda.device_count()
     print("Let's use",num_device, "GPUs!")
-    model = nn.DataParallel(model)
+    if torch.cuda.device_count() > 4: #for GCT
+        model=model.to('cuda:0')
+        model = nn.DataParallel(model, device_ids=device_idx)
+    else:
+        model = model.to(device=device)
+        model = nn.DataParallel(model)
 
 
 
@@ -131,12 +142,3 @@ summary(model, (3, IMG_SIZE, IMG_SIZE), device=device.type)
 
 traind_model, loss_hist, metric_hist, metric_cls_hist = train_val(model, device, params_train)
 
-
-
-lossdf = pd.DataFrame(loss_hist)
-accdf = pd.DataFrame(metric_hist)
-acc_clsdf = pd.DataFrame(metric_cls_hist)
-
-lossdf.to_csv(save_path + 'result/loss.csv')
-accdf.to_csv(save_path + 'result/acc.csv')
-acc_clsdf.to_csv(save_path + 'result/cls_acc.csv')
