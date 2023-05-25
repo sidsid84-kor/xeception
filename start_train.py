@@ -25,9 +25,11 @@ from torchsummary import summary
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-
+#여기는 나중에 고치든가
 from xeception_2x1ch import *
 from xeception import *
+from googlenetv4 import *
+
 from train import *
 
 from dataset import *
@@ -92,22 +94,23 @@ train_set.transforms = transformation
 val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_list= cls_list, img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
 val_set.transforms = transformation
 
+#################################################모델선언!
+model = InceptionV4(num_classes=NUM_CLS)
 
-model = Xception(num_classes=NUM_CLS)
-
+#######################################가중치 이어서 돌릴경우임.
 if weight_path != "None":
     model.load_state_dict(torch.load(weight_path, map_location=device))
 
-num_devices = torch.cuda.device_count()
+########################gpu개수 세고.. 병렬로 자동으로...뭐...기타..#
+num_device = torch.cuda.device_count()
 device_idx = []
-for i in range(num_devices):
+for i in range(num_device):
     if torch.cuda.get_device_name(i) == "NVIDIA DGX Display":
         print(f"Device is not using : {torch.cuda.get_device_name(i)}")
     else:
         device_idx.append(i)
 
 if torch.cuda.device_count() > 1:
-    num_device = torch.cuda.device_count()
     print("Let's use",num_device, "GPUs!")
     if torch.cuda.device_count() > 4: #for GCT
         model=model.to('cuda:0')
@@ -115,11 +118,16 @@ if torch.cuda.device_count() > 1:
     else:
         model = model.to(device=device)
         model = nn.DataParallel(model)
+else:
+    model = model.to(device=device)
 
-
-
-train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=4*num_device)
-val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE//num_device), num_workers=4)
+############################윈도우에서는 워커 주면안됨
+if os.name == "nt":
+    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
+    val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE//num_device))
+else:
+    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=4*num_device)
+    val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE//num_device), num_workers=4)
 
 
 # define loss function, optimizer, lr_scheduler
