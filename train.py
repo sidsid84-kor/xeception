@@ -99,7 +99,13 @@ def train_val(model, device, params):
         if val_loss < best_loss:
             best_loss = val_loss
             best_model_wts = copy.deepcopy(model.state_dict())
-            torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
+            if isinstance(model, torch.nn.DataParallel):
+            # model.module is the original model before DataParallel
+                torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
+            else:
+                torch.save(model.state_dict(), path2weights + f'{epoch}_weight.pt')
+
+            # torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
             print('Copied best model weights!')
 
         lr_scheduler.step(val_loss)
