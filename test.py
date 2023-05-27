@@ -1,51 +1,80 @@
-import torch
+import os
+import cv2
+import torchvision.transforms as transforms
 
-#from train###############################################################################################
-def metric_batch_multi_label(output, target):
-    # output: [batch_size, num_classes], target: [batch_size, num_classes]
-    pred = output.sigmoid() >= 0.5 # 이진분류: sigmoid 함수를 사용하여 확률 값을 0~1 사이로 만들고, 0.5 이상인 경우 1, 미만인 경우 0으로 예측합니다.
-    corrects = pred.eq(target).sum().item() # 정답과 예측값이 일치하는 개수를 계산합니다.
-    total = target.size(0)*target.size(1)
-    return corrects / total
-
-
-def loss_batch_multi_label(loss_func, output, target, opt=None):
-    # output: [batch_size, num_classes], target: [batch_size, num_classes]
-    loss_b = loss_func(output, target)
-    metric_b = metric_batch_multi_label(output, target)
-
-    if opt is not None:
-        opt.zero_grad()
-        loss_b.backward()
-        opt.step()
-
-    return loss_b.item(), metric_b
-#from train###############################################################################################
+from xeception_2x1ch import *
+from xeception import *
+from googlenetv4 import *
+import numpy as np
 
 
-def eval_test_set(model, device, dataloader, loss_func):
-    # 모델 파라미터 불러오기
-    model.load_state_dict(torch.load('model_weights.pt'))
+def check_path(path):
+    if os.path.isfile(path):
+        if path.endswith(('.jpg', '.jpeg', '.png', '.bmp')):
+            print("single image_classification!")
+            return 'single-image'
+        else:
+            print(f"{path} is a file but not an image file.")
+    elif os.path.isdir(path):
+        print(f"{path} is a directory.")
+        return 'directory-path'
+    else:
+        print(f"{path} does not exist.")
 
-    # 모델 평가하기
-    model.eval() # 모델을 평가 모드로 설정
 
-    with torch.no_grad():
-        for xb, yb in dataloader:
-            xb = xb.to(device)
-            yb = yb.to(device)
+def load_image(image_path,img_size):
+    transformation = transforms.Compose([
+                    transforms.ToTensor(),
+                    transforms.Resize(img_size)
+    ])
+    x_img = cv2.cvtColor(cv2.resize(cv2.imread(image_path),(640,640)),cv2.COLOR_BGR2RGB).astype(np.float32)
+    x_img /= 255.0 # 0 ~ 1로 스케일링
+    x_img = transformation(x_img)
 
-            output = model(xb)
+    return x_img
 
-            loss_b, metric_b = loss_batch_multi_label(loss_func, output, yb)
+#디렉토리로 올경우 배치처리로 ㄱㄱ
+def process_images_in_batches(image_paths,img_size, batch_size, device):
+    for i in range(0, len(image_paths), batch_size):
+        batch_paths = image_paths[i : i + batch_size]
+        batch_images = [load_image(image_path,img_size) for image_path in batch_paths]
+        batch_tensor = torch.stack(batch_images).to(device)
+        yield batch_tensor
 
-            running_loss += loss_b
+def classfication(img_path, selected_model='xeception', img_size=640, weight_path =None ):
+    if selected_model == 'xeception':
+        if weight_path == None:
+            weight_path = r"E:\weights\classification_weight\train_11/12_weight.pt"
+        model = Xception(num_classes=7)
+        model.load_state_dict(torch.load(weight_path))
+    elif selected_model == 'googlenetv4':
+        if weight_path == None:
+            weight_path = r"E:\weights\classification_weight\train_13/94_weight.pt"
+        model = InceptionV4(num_classes=7)
+        model.load_state_dict(torch.load(weight_path))
+    elif selected_model == 'VIT':
+        if weight_path == 'None':
+            weight_path = "^^"
+        pass
+    
+    #gpu로가자
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-            if metric_b is not None:
-                running_metric += metric_b
+    mymodel = model.to(device)
+    
+    #이미지 체크 리스트 작성
+    check_list = []
+    if check_path(img_path) == 'single-image':
+        check_list.append(img_path)
+    elif check_path(img_path) == 'directory-path':
+        check_list = [os.path.join(img_path, f) for f in os.listdir(img_path) if f.endswith(('.jpg', '.jpeg', '.png', '.bmp'))]
 
-    # 평가 결과 출력
-    test_loss = running_loss / len(dataloader.dataset)
-    test_metric = running_metric / (len(dataloader.dataset) * yb.size(1))
-
-    return test_loss, test_metric
+    result_list = []
+    for batch in process_images_in_batches(check_list, img_size, 2, device):
+        mymodel.eval() # 모델을 평가 모드로 설정
+        with torch.no_grad():
+            output = mymodel(batch)
+            pred = output.sigmoid() >= 0.5
+            pred_list = pred.cpu().numpy().tolist()
+            result_list.extend(pred_list)
+    return result_list

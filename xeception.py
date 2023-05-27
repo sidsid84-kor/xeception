@@ -180,6 +180,3 @@ class Xception(nn.Module):
             elif isinstance(m, nn.Linear):
                 nn.init_normal_(m.weight, 0, 0.01)
                 nn.init_constant_(m.bias, 0)
-
-
-print("complete")
