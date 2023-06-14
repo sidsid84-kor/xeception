@@ -94,7 +94,6 @@ val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_lis
 val_set.transforms = transformation
 
 #################################################모델선언!
-#여기는 나중에 고치든가
 if SELECTED_MODEL == 'xeception':
     # from xeception_2x1ch import * 이건 병렬인풋
     from xeception import *
@@ -107,8 +106,10 @@ elif SELECTED_MODEL == 'googlenetv4':
 elif SELECTED_MODEL == 'visionT':
     from ViT import ViT
     model = ViT(num_classes=NUM_CLS)
+else:
+    print('select model in list - xeception , googlenetv4 ,  visionT')
 
-
+print(f'train with {SELECTED_MODEL}')
 #######################################가중치 이어서 돌릴경우임.
 if weight_path != "None":
     model.load_state_dict(torch.load(weight_path, map_location=device))
