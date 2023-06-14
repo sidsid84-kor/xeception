@@ -25,10 +25,7 @@ from torchsummary import summary
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
 
-#여기는 나중에 고치든가
-from xeception_2x1ch import *
-from xeception import *
-from googlenetv4 import *
+
 
 from train import *
 
@@ -38,6 +35,7 @@ from dataset import *
 import argparse
 
 parser = argparse.ArgumentParser(description='parameters')
+parser.add_argument('--model', type=str, default="xeception", help='select model')
 parser.add_argument('--img_size', type=int, default=640, help='img_size')
 parser.add_argument('--epoch', type=int, default=200, help='epoch')
 parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
@@ -47,8 +45,9 @@ parser.add_argument('--csv_path', type=str, default='dataset.csv', help='csv_pat
 parser.add_argument('--train_name', type=str, default="train_", help='train name')
 parser.add_argument('--weight', type=str, default="None", help='pretrained_weight_path')
 
-args = parser.parse_args()
 
+args = parser.parse_args()
+SELECTED_MODEL = args.model
 IMG_SIZE = args.img_size
 EPOCH = args.epoch
 BATCH_SIZE = args.batch_size
@@ -95,7 +94,20 @@ val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_lis
 val_set.transforms = transformation
 
 #################################################모델선언!
-model = InceptionV4(num_classes=NUM_CLS)
+#여기는 나중에 고치든가
+if SELECTED_MODEL == 'xeception':
+    # from xeception_2x1ch import * 이건 병렬인풋
+    from xeception import *
+    model = Xception(num_classes=NUM_CLS)
+
+elif SELECTED_MODEL == 'googlenetv4':
+    from googlenetv4 import *
+    model = InceptionV4(num_classes=NUM_CLS)
+
+elif SELECTED_MODEL == 'visionT':
+    from ViT import ViT
+    model = ViT(num_classes=NUM_CLS)
+
 
 #######################################가중치 이어서 돌릴경우임.
 if weight_path != "None":
