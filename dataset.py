@@ -41,20 +41,25 @@ def validate_dataset(df, img_dir):
         print("Not founded images (Num) : ",count)
     return df
 
-def get_data_from_csv(csv_path, train_ratio, img_dir , randoms_state=42):
+def get_data_from_csv(csv_path, train_ratio, img_dir, randoms_state=42, val_csv_path=None):
     ###### columns example : ['id', 'good', 'b_edge', 'burr', 'borken', 'b_bubble', 'etc', 'no_lens']
-
-    df = pd.read_csv(csv_path)
-    df = validate_dataset(df=df,img_dir=img_dir)
-    train_df , val_df = train_test_split(df, test_size=train_ratio, random_state=randoms_state)
+    if val_csv_path is not None:
+        train_df = pd.read_csv(csv_path)
+        train_df = validate_dataset(df=train_df, img_dir=img_dir)
+        val_df = pd.read_csv(val_csv_path)
+        val_df = validate_dataset(df=val_df, img_dir=img_dir)
+    else:
+        df = pd.read_csv(csv_path)
+        df = validate_dataset(df=df,img_dir=img_dir)
+        train_df , val_df = train_test_split(df, test_size=train_ratio, random_state=randoms_state)
 
     print('num of train_df',len(train_df))
     print('num of val_df',len(val_df))
 
-    num_cls = len(df.columns) - 1  # because, it is multi-label
+    num_cls = len(train_df.columns) - 1  # because, it is multi-label
 
     print('number of class: ', num_cls)
-    cls_list = list(df.columns)
+    cls_list = list(train_df.columns)
     cls_list.remove('id')
     print(cls_list)
     

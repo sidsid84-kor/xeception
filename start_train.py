@@ -42,6 +42,7 @@ parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
 parser.add_argument('--test_ratio', type=float, default=0.2, help='test_ratio')
 parser.add_argument('--img_dir', type=str, default='./data/images2', help='img_dri')
 parser.add_argument('--csv_path', type=str, default='dataset.csv', help='csv_path')
+parser.add_argument('--val_csv_path', type=str, default=None, help='val_csv_path')
 parser.add_argument('--train_name', type=str, default="train_", help='train name')
 parser.add_argument('--weight', type=str, default="None", help='pretrained_weight_path')
 
@@ -54,6 +55,7 @@ BATCH_SIZE = args.batch_size
 TRAIN_RATIO = args.test_ratio
 IMG_DIR = args.img_dir
 CSV_PATH = args.csv_path
+VAL_PATH = args.val_csv_path
 SAVE_FOLDER_NAME = args.train_name #folder name - > models/train_0/ save weights and result
 weight_path = args.weight
 
@@ -84,7 +86,7 @@ transformation = transforms.Compose([
 ])
 
 
-train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path=CSV_PATH,img_dir=IMG_DIR, train_ratio=TRAIN_RATIO, randoms_state=42)
+train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path=CSV_PATH,img_dir=IMG_DIR, train_ratio=TRAIN_RATIO, randoms_state=42, val_csv_path=VAL_PATH)
 
 
 train_set = CustomDataset(train_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_list= cls_list ,img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
@@ -95,7 +97,6 @@ val_set.transforms = transformation
 
 #################################################모델선언!
 if SELECTED_MODEL == 'xeception':
-    # from xeception_2x1ch import * 이건 병렬인풋
     from xeception import *
     model = Xception(num_classes=NUM_CLS)
 
@@ -106,6 +107,7 @@ elif SELECTED_MODEL == 'googlenetv4':
 elif SELECTED_MODEL == 'visionT':
     from ViT import ViT
     model = ViT(num_classes=NUM_CLS)
+    
 else:
     print('select model in list - xeception , googlenetv4 ,  visionT')
 
