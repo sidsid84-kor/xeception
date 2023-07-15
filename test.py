@@ -64,16 +64,16 @@ def process_images_in_batches(image_paths,img_size, batch_size, device, is_NOT_l
         batch_tensor = torch.stack(batch_images).to(device)
         yield batch_tensor
 
-def classfication(img_path, batch_size, selected_model='googlenetv4', img_size=640, weight_path =None ):
+def classfication(img_path, batch_size, selected_model='googlenetv4', img_size=640, weight_path =None, num_classes=7 ):
     if selected_model == 'xeception':
         if weight_path == None:
             weight_path = './runs/pre_model/weight.pt'
-        model = Xception(num_classes=7)
+        model = Xception(num_classes=num_classes)
         model.load_state_dict(torch.load(weight_path))
     elif selected_model == 'googlenetv4':
         if weight_path == None:
             weight_path = "./runs/pre_model/weight.pt"
-        model = InceptionV4(num_classes=7)
+        model = InceptionV4(num_classes=num_classes)
         model.load_state_dict(torch.load(weight_path))
     elif selected_model == 'VIT':
         if weight_path == 'None':
