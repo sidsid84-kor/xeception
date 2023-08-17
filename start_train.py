@@ -45,6 +45,7 @@ parser.add_argument('--csv_path', type=str, default='dataset.csv', help='csv_pat
 parser.add_argument('--val_csv_path', type=str, default=None, help='val_csv_path')
 parser.add_argument('--train_name', type=str, default="train_", help='train name')
 parser.add_argument('--weight', type=str, default="None", help='pretrained_weight_path')
+parser.add_argument('--loss', type=str, default="multi", help='multi or softmax')
 
 
 args = parser.parse_args()
@@ -57,6 +58,7 @@ IMG_DIR = args.img_dir
 CSV_PATH = args.csv_path
 VAL_PATH = args.val_csv_path
 SAVE_FOLDER_NAME = args.train_name #folder name - > models/train_0/ save weights and result
+LOSS_MODE = args.loss
 weight_path = args.weight
 
 def create_directory():
@@ -146,7 +148,10 @@ else:
 
 
 # define loss function, optimizer, lr_scheduler
-loss_func = nn.MultiLabelSoftMarginLoss()
+if LOSS_MODE == 'multi':
+    loss_func = nn.MultiLabelSoftMarginLoss()
+elif LOSS_MODE == 'softmax':
+    loss_func = nn.CrossEntropyLoss()
 opt = optim.Adam(model.parameters(), lr=0.001)
 lr_scheduler = ReduceLROnPlateau(opt, mode='min', factor=0.1, patience=50)
 
@@ -159,6 +164,7 @@ params_train = {
     'sanity_check':False,
     'lr_scheduler':lr_scheduler,
     'path2weights':save_path,
+    'loss_mode' : LOSS_MODE,
 }
 
 summary(model, (3, IMG_SIZE, IMG_SIZE), device=device.type)
