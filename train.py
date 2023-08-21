@@ -208,7 +208,7 @@ def loss_epoch_multi_label(model, device, loss_func, dataset_dl, sanity_check=Fa
 def loss_epoch(model, device, loss_func, dataset_dl, sanity_check=False, opt=None):
     running_loss = 0.0
     running_metric = 0.0
-    
+    num_classes = dataset_dl.dataset.num_classes
     b_count = 0
     with tqdm.tqdm(dataset_dl, unit="batch") as tepoch:
         for xb, yb in tepoch:
@@ -216,8 +216,9 @@ def loss_epoch(model, device, loss_func, dataset_dl, sanity_check=False, opt=Non
             xb = xb.to(device)
             yb = yb.to(device)
             output = model(xb)
+            
 
-            loss_b, metric_b = loss_batch(loss_func, output, yb, device, opt)
+            loss_b, metric_b = loss_batch(loss_func, output, yb, device, num_classes, opt)
 
             running_loss += loss_b
 
@@ -233,19 +234,25 @@ def loss_epoch(model, device, loss_func, dataset_dl, sanity_check=False, opt=Non
     return loss, metric
 
 
-def metric_batch(output, target, device):
-    # output: [batch_size, num_classes], target: [batch_size, num_classes]
+def metric_batch(output, target, device,num_classes):
     
-    acc= Accuracy().to(device)
-    accuracy = acc(output, target)
+    # output: [batch_size, num_classes], target: [batch_size, num_classes]
+    _, predicted = torch.max(output, 1)
+    
+    acc = Accuracy(average='micro', task='multiclass', num_classes=num_classes).to(device)
+    acc.update(predicted, target)
+    accuracy = acc.compute()
     
     return accuracy
 
 
-def loss_batch(loss_func, output, target, device, opt=None):
+def loss_batch(loss_func, output, target, device, num_classes, opt=None):
     # output: [batch_size, num_classes], target: [batch_size, num_classes]
+    
+    target = torch.argmax(target, dim=1)
+    
     loss_b = loss_func(output, target)
-    metric_b = metric_batch(output, target, device)
+    metric_b = metric_batch(output, target, device, num_classes)
 
     if opt is not None:
         opt.zero_grad()
