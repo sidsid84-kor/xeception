@@ -64,7 +64,7 @@ def process_images_in_batches(image_paths,img_size, batch_size, device, is_NOT_l
         batch_tensor = torch.stack(batch_images).to(device)
         yield batch_tensor
 
-def classfication(img_path, batch_size, selected_model='googlenetv4', img_size=640, weight_path =None, num_classes=7 ):
+def classfication(img_path, batch_size, selected_model='googlenetv4', img_size=640, weight_path =None, num_classes=7, mode='multi' ):
     if selected_model == 'xeception':
         if weight_path == None:
             weight_path = './runs/pre_model/weight.pt'
@@ -104,7 +104,10 @@ def classfication(img_path, batch_size, selected_model='googlenetv4', img_size=6
         mymodel.eval() # 모델을 평가 모드로 설정
         with torch.no_grad():
             output = mymodel(batch)
-            pred = output.sigmoid() >= 0.5
+            if mode == 'multi':
+                pred = output.sigmoid() >= 0.5
+            elif mode == 'softmax':
+                _, pred = torch.max(output, 1)
             pred_list = pred.cpu().numpy().tolist()
             result_list.extend(pred_list)
     return check_list, result_list
