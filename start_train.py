@@ -138,13 +138,30 @@ if torch.cuda.device_count() > 1:
 else:
     model = model.to(device=device)
 
+def collate_fn(batch):
+    images, targets = zip(*batch)
+    images = torch.stack(images, 0)
+    
+    # Find the maximum target length
+    max_len = max([len(t) for t in targets])
+    
+    # Pad each target to the maximum length
+    targets_padded = [torch.cat([torch.tensor(t), torch.zeros(max_len - len(t))]) for t in targets]
+    
+    targets = torch.stack(targets_padded, 0)
+    return images, targets
+
+
+
 ############################윈도우에서는 워커 주면안됨
 if os.name == "nt":
     train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
-    val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE//num_device))
+    val_loader = DataLoader(val_set, batch_size=int(BATCH_SIZE//num_device))
 else:
-    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=4*num_device)
-    val_loader = DataLoader(train_set, batch_size=int(BATCH_SIZE//num_device), num_workers=4)
+    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, collate_fn=collate_fn, num_workers=4)
+    val_loader = DataLoader(val_set, batch_size=int(BATCH_SIZE//num_device), collate_fn=collate_fn, num_workers=4)
+    # train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=4*num_device)
+    # val_loader = DataLoader(val_set, batch_size=int(BATCH_SIZE//num_device), num_workers=4)
 
 
 # define loss function, optimizer, lr_scheduler

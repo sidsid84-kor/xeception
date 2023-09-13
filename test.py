@@ -100,6 +100,7 @@ def classfication(img_path, batch_size, selected_model='googlenetv4', img_size=6
         return None
 
     result_list = []
+    # output_list = []
     for batch in process_images_in_batches(check_list, img_size, batch_size, device, is_NOT_loaded):
         mymodel.eval() # 모델을 평가 모드로 설정
         with torch.no_grad():
@@ -110,4 +111,5 @@ def classfication(img_path, batch_size, selected_model='googlenetv4', img_size=6
                 _, pred = torch.max(output, 1)
             pred_list = pred.cpu().numpy().tolist()
             result_list.extend(pred_list)
-    return check_list, result_list
+            # output_list.extend(output)
+    return check_list, result_list #,output_list

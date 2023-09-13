@@ -112,14 +112,22 @@ def train_val(model, device, params):
         if val_loss < best_loss:
             best_loss = val_loss
             best_model_wts = copy.deepcopy(model.state_dict())
-            if isinstance(model, torch.nn.DataParallel):
-            # model.module is the original model before DataParallel
-                torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
-            else:
-                torch.save(model.state_dict(), path2weights + f'{epoch}_weight.pt')
+        #     if isinstance(model, torch.nn.DataParallel):
+        #     # model.module is the original model before DataParallel
+        #         torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
+        #     else:
+        #         torch.save(model.state_dict(), path2weights + f'{epoch}_weight.pt')
 
-            # torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
-            print('Copied best model weights!')
+        #     # torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
+        #     print('Copied best model weights!')
+
+        if isinstance(model, torch.nn.DataParallel):
+        # model.module is the original model before DataParallel
+            torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
+        else:
+            torch.save(model.state_dict(), path2weights + f'{epoch}_weight.pt')
+
+        # torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
 
         lr_scheduler.step(val_loss)
         if current_lr != get_lr(opt):
@@ -143,7 +151,7 @@ def train_val(model, device, params):
             accdf.to_csv(path2weights + 'result/acc.csv')
             metric_cls_history = None
 
-    model.load_state_dict(best_model_wts)
+    # model.load_state_dict(best_model_wts)
     return model, loss_history, metric_history, metric_cls_history
 
 def metric_batch_multi_label(output, target, device):

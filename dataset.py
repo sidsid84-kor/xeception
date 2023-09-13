@@ -79,7 +79,15 @@ class CustomDataset(Dataset):
         self.img_dsize = img_dsize
         self.class_list = class_list
         self.num_classes = num_classes
-    
+
+    #데이터 길이 검증
+    def validate_data_records(self):
+        for idx, image_id in enumerate(self.image_ids):
+            records = self.df[self.df['id'] == image_id]
+            target = np.array(records[self.class_list].values).astype(np.float32)
+            if target.shape[1] != len(self.class_list):
+                print(f"Index {idx} with image_id {image_id} has mismatched target size. Expected {len(self.class_list)}, but got {target.shape[1]}")
+
 
     def __getitem__(self, index: int):
         # 이미지 index로 아이템 불러오기
@@ -97,7 +105,6 @@ class CustomDataset(Dataset):
 
         target = np.array(records[self.class_list].values).astype(np.float32)
         target = target.reshape(-1)
-
         if self.transforms is not None:
             image = self.transforms(image)
 
