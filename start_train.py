@@ -170,7 +170,7 @@ if LOSS_MODE == 'multi':
 elif LOSS_MODE == 'softmax':
     loss_func = nn.CrossEntropyLoss()
 opt = optim.Adam(model.parameters(), lr=0.001)
-lr_scheduler = ReduceLROnPlateau(opt, mode='min', factor=0.1, patience=50)
+lr_scheduler = ReduceLROnPlateau(opt, mode='min', factor=0.1, patience=5)
 
 params_train = {
     'num_epochs':EPOCH,
