@@ -9,3 +9,5 @@ val_csv_path>>None
 train_name>>train_
 weight>>None
 loss>>multi
+rearning_rate>>0.001
+rl_patience>>5

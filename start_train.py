@@ -53,6 +53,8 @@ with open(args.config) as f:
     SAVE_FOLDER_NAME = lines[8].split(">>")[1]
     weight_path = lines[9].split(">>")[1]
     LOSS_MODE = lines[10].split(">>")[1]
+    Learning_RATE = float(lines[11].split(">>")[1])
+    LR_patience = int(lines[12].split(">>")[1])
 
 print('SELECTED_MODEL',SELECTED_MODEL)
 print('IMG_SIZE',IMG_SIZE)
@@ -65,6 +67,8 @@ print('VAL_PATH',VAL_PATH)
 print('SAVE_FOLDER_NAME',SAVE_FOLDER_NAME)
 print('weight_path',weight_path)
 print('LOSS_MODE',LOSS_MODE)
+print('Learning_RATE',Learning_RATE)
+print('LR_patience',LR_patience)
     
 
 def create_directory():
@@ -182,8 +186,8 @@ if LOSS_MODE == 'multi':
     loss_func = nn.MultiLabelSoftMarginLoss()
 elif LOSS_MODE == 'softmax':
     loss_func = nn.CrossEntropyLoss()
-opt = optim.Adam(model.parameters(), lr=0.001)
-lr_scheduler = ReduceLROnPlateau(opt, mode='min', factor=0.1, patience=5)
+opt = optim.Adam(model.parameters(), lr=Learning_RATE)
+lr_scheduler = ReduceLROnPlateau(opt, mode='min', factor=0.1, patience=LR_patience)
 
 params_train = {
     'num_epochs':EPOCH,
