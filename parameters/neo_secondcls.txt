@@ -1,0 +1,11 @@
+model>>xeception
+img_size>>640
+epoch>>200
+batch_size>>32
+test_ratio>>0.2
+img_dir>>./data/images2
+csv_path>>./csvs/dataset.csv
+val_csv_path>>None
+train_name>>train_
+weight>>None
+loss>>multi

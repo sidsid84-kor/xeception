@@ -1,0 +1,11 @@
+model>>efficientnet
+img_size>>640
+epoch>>200
+batch_size>>4
+test_ratio>>0.2
+img_dir>>./data/images2
+csv_path>>./csvs/TH_dataset.csv
+val_csv_path>>None
+train_name>>effinet_
+weight>>None
+loss>>multi

@@ -10,6 +10,7 @@ from torchvision import datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import os
+import sys
 
 # display images
 from torchvision import utils
@@ -35,31 +36,36 @@ from dataset import *
 import argparse
 
 parser = argparse.ArgumentParser(description='parameters')
-parser.add_argument('--model', type=str, default="xeception", help='select model')
-parser.add_argument('--img_size', type=int, default=640, help='img_size')
-parser.add_argument('--epoch', type=int, default=200, help='epoch')
-parser.add_argument('--batch_size', type=int, default=32, help='batch_size')
-parser.add_argument('--test_ratio', type=float, default=0.2, help='test_ratio')
-parser.add_argument('--img_dir', type=str, default='./data/images2', help='img_dri')
-parser.add_argument('--csv_path', type=str, default='dataset.csv', help='csv_path')
-parser.add_argument('--val_csv_path', type=str, default=None, help='val_csv_path')
-parser.add_argument('--train_name', type=str, default="train_", help='train name')
-parser.add_argument('--weight', type=str, default="None", help='pretrained_weight_path')
-parser.add_argument('--loss', type=str, default="multi", help='multi or softmax')
-
+parser.add_argument('--config', type=str, default="./parameters/base.txt", help='configed txt filepath')
 
 args = parser.parse_args()
-SELECTED_MODEL = args.model
-IMG_SIZE = args.img_size
-EPOCH = args.epoch
-BATCH_SIZE = args.batch_size
-TRAIN_RATIO = args.test_ratio
-IMG_DIR = args.img_dir
-CSV_PATH = args.csv_path
-VAL_PATH = args.val_csv_path
-SAVE_FOLDER_NAME = args.train_name #folder name - > models/train_0/ save weights and result
-LOSS_MODE = args.loss
-weight_path = args.weight
+
+with open(args.config) as f:
+    lines = [line.strip() for line in f.readlines()]
+    SELECTED_MODEL = lines[0].split(">>")[1]
+    IMG_SIZE = int(lines[1].split(">>")[1])
+    EPOCH = int(lines[2].split(">>")[1])
+    BATCH_SIZE = int(lines[3].split(">>")[1])
+    TRAIN_RATIO = float(lines[4].split(">>")[1])
+    IMG_DIR = lines[5].split(">>")[1]
+    CSV_PATH = lines[6].split(">>")[1]
+    VAL_PATH = lines[7].split(">>")[1]
+    SAVE_FOLDER_NAME = lines[8].split(">>")[1]
+    weight_path = lines[9].split(">>")[1]
+    LOSS_MODE = lines[10].split(">>")[1]
+
+print('SELECTED_MODEL',SELECTED_MODEL)
+print('IMG_SIZE',IMG_SIZE)
+print('EPOCH',EPOCH)
+print('BATCH_SIZE',BATCH_SIZE)
+print('TRAIN_RATIO',TRAIN_RATIO)
+print('IMG_DIR',IMG_DIR)
+print('CSV_PATH',CSV_PATH)
+print('VAL_PATH',VAL_PATH)
+print('SAVE_FOLDER_NAME',SAVE_FOLDER_NAME)
+print('weight_path',weight_path)
+print('LOSS_MODE',LOSS_MODE)
+    
 
 def create_directory():
     i = 1
@@ -98,6 +104,12 @@ val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_lis
 val_set.transforms = transformation
 
 #################################################모델선언!
+model_list = ['xeception', 'googlenetv4','visionT', 'efficientnet']
+if SELECTED_MODEL not in model_list:
+    print("해당 모델은 없음")
+    print(f"{model_list} 에서 선택해야함")
+    sys.exit()
+
 if SELECTED_MODEL == 'xeception':
     from xeception import *
     model = Xception(num_classes=NUM_CLS)
@@ -109,9 +121,10 @@ elif SELECTED_MODEL == 'googlenetv4':
 elif SELECTED_MODEL == 'visionT':
     from ViT import ViT
     model = ViT(num_classes=NUM_CLS)
-    
-else:
-    print('select model in list - xeception , googlenetv4 ,  visionT')
+
+elif SELECTED_MODEL == 'efficientnet':
+    from efficientnet import EfficientNet
+    model = EfficientNet.from_name('efficientnet-b9', num_classes = NUM_CLS)
 
 print(f'train with {SELECTED_MODEL}')
 #######################################가중치 이어서 돌릴경우임.

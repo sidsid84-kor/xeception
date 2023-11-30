@@ -43,6 +43,7 @@ def validate_dataset(df, img_dir):
 
 def get_data_from_csv(csv_path, train_ratio, img_dir, randoms_state=42, val_csv_path=None):
     ###### columns example : ['id', 'good', 'b_edge', 'burr', 'borken', 'b_bubble', 'etc', 'no_lens']
+    val_csv_path = None if val_csv_path == 'None' else val_csv_path
     if val_csv_path is not None:
         train_df = pd.read_csv(csv_path)
         train_df = validate_dataset(df=train_df, img_dir=img_dir)
