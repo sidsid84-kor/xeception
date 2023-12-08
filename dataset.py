@@ -67,6 +67,45 @@ def get_data_from_csv(csv_path, train_ratio, img_dir, randoms_state=42, val_csv_
     return train_df, val_df, num_cls, cls_list
 
 
+#이건 과제용임!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+def get_data_from_csv_TH(csv_path, train_ratio, img_dir, randoms_state=42):
+    ###### columns example : ['id', 'good', 'b_edge', 'burr', 'borken', 'b_bubble', 'etc', 'no_lens']
+    print('####################################################################################')
+    print('############################# 과제용임!!!!!!!! ######################################')
+    print('####################################################################################')
+
+
+    df = pd.read_csv(csv_path)
+    df = validate_dataset(df=df,img_dir=img_dir)
+    train_df , temp_df = train_test_split(df, test_size=1-train_ratio, random_state=randoms_state)
+    val_df, test_df = train_test_split(temp_df, test_size=0.5, random_state=randoms_state)
+
+
+    # 'good' 열을 데이터 프레임에서 제거 및 클래스 재정렬
+    cls_list = ['no_lens', 'etc', 'burr', 'borken', 'b_edge', 'b_bubble']
+    train_df = train_df.drop(columns=['good'])
+    train_df = train_df[['id'] + cls_list]
+    val_df = val_df.drop(columns=['good'])
+    val_df = val_df[['id'] + cls_list]
+    test_df = test_df.drop(columns=['good'])
+    test_df = test_df[['id'] + cls_list]
+
+
+    print('num of train_df',len(train_df))
+    print('num of val_df',len(val_df))
+    print('num of test_df',len(test_df))
+
+    num_cls = len(train_df.columns) - 1  # because, it is multi-label
+
+    print('number of class: ', num_cls)
+    # cls_list = list(train_df.columns)
+    # cls_list.remove('id')
+
+    print(cls_list)
+
+    return train_df, val_df, test_df, num_cls, cls_list
+
+
 class CustomDataset(Dataset):
 
     def __init__(self, dataframe, image_dir, num_classes, class_list, transforms=None, img_resize = False, img_dsize = (640,640)):
