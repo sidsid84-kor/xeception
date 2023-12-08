@@ -1,12 +1,12 @@
-model>>efficientnet
+model>>th_googlenetv4
 img_size>>640
 epoch>>200
-batch_size>>24
+batch_size>>32
 test_ratio>>0.2
 img_dir>>./data/images2
 csv_path>>./csvs/TH_dataset.csv
 val_csv_path>>None
-train_name>>effinet_cus_
+train_name>>th_googlenet_
 weight>>None
 loss>>multi
 rearning_rate>>0.0005

@@ -134,6 +134,10 @@ elif SELECTED_MODEL == 'th_googlenetv4':
     from TH_googlenet import *
     model = TH_InceptionV4(num_classes=NUM_CLS)
 
+elif SELECTED_MODEL == 'th_efficientnet':
+    from TH_efficientnet import *
+    model = TH_EfficientNet.from_name('efficientnet-b9', num_classes = NUM_CLS)
+
 print(f'train with {SELECTED_MODEL}')
 #######################################가중치 이어서 돌릴경우임.
 if weight_path != "None":

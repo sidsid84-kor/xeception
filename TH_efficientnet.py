@@ -351,7 +351,6 @@ class MaxPool2dStaticSamePadding(nn.MaxPool2d):
 # efficientnet_params: A function to query compound coefficient
 # get_model_params and efficientnet:
 #     Functions to get BlockArgs and GlobalParams for efficientnet
-# url_map and url_map_advprop: Dicts of url_map for pretrained weights
 # load_pretrained_weights: A function to load pretrained weights
 
 class BlockDecoder(object):
@@ -549,72 +548,6 @@ def get_model_params(model_name, override_params):
     return blocks_args, global_params
 
 
-# train with Standard methods
-# check more details in paper(EfficientNet: Rethinking Model Scaling for Convolutional Neural Networks)
-url_map = {
-    'efficientnet-b0': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b0-355c32eb.pth',
-    'efficientnet-b1': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b1-f1951068.pth',
-    'efficientnet-b2': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b2-8bb594d6.pth',
-    'efficientnet-b3': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b3-5fb5a3c3.pth',
-    'efficientnet-b4': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b4-6ed6700e.pth',
-    'efficientnet-b5': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b5-b6417697.pth',
-    'efficientnet-b6': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b6-c76e70fd.pth',
-    'efficientnet-b7': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/efficientnet-b7-dcc49843.pth',
-}
-
-# train with Adversarial Examples(AdvProp)
-# check more details in paper(Adversarial Examples Improve Image Recognition)
-url_map_advprop = {
-    'efficientnet-b0': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/adv-efficientnet-b0-b64d5a18.pth',
-    'efficientnet-b1': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/adv-efficientnet-b1-0f3ce85a.pth',
-    'efficientnet-b2': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/adv-efficientnet-b2-6e9d97e5.pth',
-    'efficientnet-b3': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/adv-efficientnet-b3-cdd7c0f4.pth',
-    'efficientnet-b4': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/adv-efficientnet-b4-44fb3a87.pth',
-    'efficientnet-b5': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/adv-efficientnet-b5-86493f6b.pth',
-    'efficientnet-b6': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/adv-efficientnet-b6-ac80338e.pth',
-    'efficientnet-b7': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/adv-efficientnet-b7-4652b6dd.pth',
-    'efficientnet-b8': 'https://github.com/lukemelas/EfficientNet-PyTorch/releases/download/1.0/adv-efficientnet-b8-22a8fe65.pth',
-}
-
-# TODO: add the petrained weights url map of 'efficientnet-l2'
-
-
-def load_pretrained_weights(model, model_name, weights_path=None, load_fc=True, advprop=False, verbose=True):
-    """Loads pretrained weights from weights path or download using url.
-
-    Args:
-        model (Module): The whole model of efficientnet.
-        model_name (str): Model name of efficientnet.
-        weights_path (None or str):
-            str: path to pretrained weights file on the local disk.
-            None: use pretrained weights downloaded from the Internet.
-        load_fc (bool): Whether to load pretrained weights for fc layer at the end of the model.
-        advprop (bool): Whether to load pretrained weights
-                        trained with advprop (valid when weights_path is None).
-    """
-    if isinstance(weights_path, str):
-        state_dict = torch.load(weights_path)
-    else:
-        # AutoAugment or Advprop (different preprocessing)
-        url_map_ = url_map_advprop if advprop else url_map
-        state_dict = model_zoo.load_url(url_map_[model_name])
-
-    if load_fc:
-        ret = model.load_state_dict(state_dict, strict=False)
-        assert not ret.missing_keys, 'Missing keys when loading pretrained weights: {}'.format(ret.missing_keys)
-    else:
-        state_dict.pop('_fc.weight')
-        state_dict.pop('_fc.bias')
-        ret = model.load_state_dict(state_dict, strict=False)
-        assert set(ret.missing_keys) == set(
-            ['_fc.weight', '_fc.bias']), 'Missing keys when loading pretrained weights: {}'.format(ret.missing_keys)
-    assert not ret.unexpected_keys, 'Missing keys when loading pretrained weights: {}'.format(ret.unexpected_keys)
-
-    if verbose:
-        print('Loaded pretrained weights for {}'.format(model_name))
-
-
-
 VALID_MODELS = (
     'efficientnet-b0', 'efficientnet-b1', 'efficientnet-b2', 'efficientnet-b3',
     'efficientnet-b4', 'efficientnet-b5', 'efficientnet-b6', 'efficientnet-b7',
@@ -732,7 +665,7 @@ class MBConvBlock(nn.Module):
         self._swish = MemoryEfficientSwish() if memory_efficient else Swish()
 
 
-class EfficientNet(nn.Module):
+class TH_EfficientNet(nn.Module):
     """EfficientNet model.
        Most easily loaded with the .from_name or .from_pretrained methods.
 
@@ -937,40 +870,6 @@ class EfficientNet(nn.Module):
         model._change_in_channels(in_channels)
         return model
 
-    @classmethod
-    def from_pretrained(cls, model_name, weights_path=None, advprop=False,
-                        in_channels=3, num_classes=1000, **override_params):
-        """Create an efficientnet model according to name.
-
-        Args:
-            model_name (str): Name for efficientnet.
-            weights_path (None or str):
-                str: path to pretrained weights file on the local disk.
-                None: use pretrained weights downloaded from the Internet.
-            advprop (bool):
-                Whether to load pretrained weights
-                trained with advprop (valid when weights_path is None).
-            in_channels (int): Input data's channel number.
-            num_classes (int):
-                Number of categories for classification.
-                It controls the output size for final linear layer.
-            override_params (other key word params):
-                Params to override model's global_params.
-                Optional key:
-                    'width_coefficient', 'depth_coefficient',
-                    'image_size', 'dropout_rate',
-                    'batch_norm_momentum',
-                    'batch_norm_epsilon', 'drop_connect_rate',
-                    'depth_divisor', 'min_depth'
-
-        Returns:
-            A pretrained efficientnet model.
-        """
-        model = cls.from_name(model_name, num_classes=num_classes, **override_params)
-        load_pretrained_weights(model, model_name, weights_path=weights_path,
-                                load_fc=(num_classes == 1000), advprop=advprop)
-        model._change_in_channels(in_channels)
-        return model
 
     @classmethod
     def get_image_size(cls, model_name):
