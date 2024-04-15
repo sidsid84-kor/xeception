@@ -55,6 +55,7 @@ with open(args.config) as f:
     LOSS_MODE = lines[10].split(">>")[1]
     Learning_RATE = float(lines[11].split(">>")[1])
     LR_patience = int(lines[12].split(">>")[1])
+    DropOut_RATE = float(lines[13].split(">>")[1])
 
 print('SELECTED_MODEL',SELECTED_MODEL)
 print('IMG_SIZE',IMG_SIZE)
@@ -69,7 +70,7 @@ print('weight_path',weight_path)
 print('loss_MODE',LOSS_MODE)
 print('Learning_RATE',Learning_RATE)
 print('LR_patience',LR_patience)
-    
+print('DropOut_RATE',DropOut_RATE)
 
 def create_directory():
     i = 1
@@ -120,7 +121,7 @@ if SELECTED_MODEL == 'xeception':
 
 elif SELECTED_MODEL == 'googlenetv4':
     from googlenetv4 import *
-    model = InceptionV4(num_classes=NUM_CLS)
+    model = InceptionV4(num_classes=NUM_CLS, dropout_prob=DropOut_RATE)
 
 elif SELECTED_MODEL == 'visionT':
     from ViT import ViT
@@ -141,7 +142,7 @@ elif SELECTED_MODEL == 'th_efficientnet':
 print(f'train with {SELECTED_MODEL}')
 #######################################가중치 이어서 돌릴경우임.
 if weight_path != "None":
-    model.load_state_dict(torch.load(weight_path, map_location=device))
+    model.load_state_dict(torch.load(weight_path, map_location=device), strict=False)
 
 ########################gpu개수 세고.. 병렬로 자동으로...뭐...기타..#
 num_device = torch.cuda.device_count()

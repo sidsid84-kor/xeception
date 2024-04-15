@@ -13,6 +13,7 @@ class InceptionV4(nn.Module):
             m: int = 256,
             n: int = 384,
             num_classes: int = 1000,
+            dropout_prob = 0.0,
     ) -> None:
         super(InceptionV4, self).__init__()
         self.features = nn.Sequential(
@@ -37,6 +38,8 @@ class InceptionV4(nn.Module):
 
         self.global_average_pooling = nn.AdaptiveAvgPool2d((1, 1))
 
+        self.dropout = nn.Dropout(dropout_prob)
+
         self.linear = nn.Linear(1536, num_classes)
 
         # Initialize neural network weights
@@ -52,6 +55,7 @@ class InceptionV4(nn.Module):
         out = self.features(x)
         out = self.global_average_pooling(out)
         out = torch.flatten(out, 1)
+        out = self.dropout(out)
         out = self.linear(out)
 
         return out

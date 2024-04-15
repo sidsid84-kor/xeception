@@ -11,3 +11,4 @@ weight>>None
 loss>>multi
 rearning_rate>>0.001
 rl_patience>>5
+dropout_rate>>0.0
