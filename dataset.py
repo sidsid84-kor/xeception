@@ -108,7 +108,7 @@ def get_data_from_csv_TH(csv_path, train_ratio, img_dir, randoms_state=42):
 
 class CustomDataset(Dataset):
 
-    def __init__(self, dataframe, image_dir, num_classes, class_list, transforms=None, img_resize = False, img_dsize = (640,640)):
+    def __init__(self, dataframe, image_dir, num_classes, class_list, transforms=None, img_resize = False, img_dsize = (640,640), polar_tranform = False):
         super().__init__()
         
         self.image_ids = dataframe['id'].unique() # 이미지 고유 ID
@@ -119,6 +119,7 @@ class CustomDataset(Dataset):
         self.img_dsize = img_dsize
         self.class_list = class_list
         self.num_classes = num_classes
+        self.polar_transform = polar_tranform
 
     #데이터 길이 검증
     def validate_data_records(self):
@@ -128,6 +129,11 @@ class CustomDataset(Dataset):
             if target.shape[1] != len(self.class_list):
                 print(f"Index {idx} with image_id {image_id} has mismatched target size. Expected {len(self.class_list)}, but got {target.shape[1]}")
 
+    def polar_transform_func(self, pic):
+        pic = cv2.linearPolar(pic, (pic.shape[0]/2,pic.shape[1]/2), pic.shape[0]/2, cv2.WARP_FILL_OUTLIERS)
+        pic = cv2.rotate(pic, cv2.ROTATE_90_COUNTERCLOCKWISE)
+        img_edge = pic[:160,:,:]
+        return img_edge
 
     def __getitem__(self, index: int):
         # 이미지 index로 아이템 불러오기
@@ -138,8 +144,17 @@ class CustomDataset(Dataset):
         image = cv2.imread(f'{self.image_dir}/{image_id}', cv2.IMREAD_COLOR)
             
         # OpenCV가 컬러를 저장하는 방식인 BGR을 RGB로 변환
-        if self.img_resize:
+        if self.img_resize and not self.polar_transform:
             image = cv2.resize(image, self.img_dsize)
+
+        if self.polar_transform:
+            image = self.polar_transform_func(image)
+            if self.img_resize:
+                new_width = self.img_dsize[0]
+                new_height = int(image.shape[0] * (new_width / image.shape[1]))
+                image = cv2.resize(image, (new_width, new_height))
+                
+
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
         image /= 255.0 # 0 ~ 1로 스케일링
 

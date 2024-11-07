@@ -5,58 +5,12 @@ import os
 import pandas as pd
 import tqdm
 from torchmetrics.classification import MultilabelAccuracy, Accuracy
+import torch.distributed as dist
 
 # get current lr
 def get_lr(opt):
     for param_group in opt.param_groups:
         return param_group['lr']
-
-
-# # calculate the metric per mini-batch
-# def metric_batch(output, target):
-#     pred = output.argmax(1, keepdim=True)
-#     corrects = pred.eq(target.view_as(pred)).sum().item()
-#     return corrects
-
-
-# # calculate the loss per mini-batch
-# def loss_batch(loss_func, output, target, opt=None):
-#     loss_b = loss_func(output, target)
-#     metric_b = metric_batch(output, target)
-
-#     if opt is not None:
-#         opt.zero_grad()
-#         loss_b.backward()
-#         opt.step()
-    
-#     return loss_b.item(), metric_b
-
-
-# calculate the loss per epochs
-# def loss_epoch(model, device, loss_func, dataset_dl, sanity_check=False, opt=None):
-#     running_loss = 0.0
-#     running_metric = 0.0
-#     len_data = len(dataset_dl.dataset)
-
-#     for xb, yb in dataset_dl:
-#         xb = xb.to(device)
-#         yb = yb.to(device)
-#         output = model(xb)
-
-#         loss_b, metric_b = loss_batch(loss_func, output, yb, opt)
-
-#         running_loss += loss_b
-        
-#         if metric_b is not None:
-#             running_metric += metric_b
-
-#         if sanity_check is True:
-#             break
-
-#     loss = running_loss / len_data
-#     metric = running_metric / len_data
-#     return loss, metric
-
 
 # function to start training
 def train_val(model, device, params):
@@ -104,32 +58,32 @@ def train_val(model, device, params):
                 val_loss, val_metric,val_cls_metric = loss_epoch_multi_label(model, device, loss_func, val_dl, sanity_check)
             else:
                 val_loss, val_metric = loss_epoch(model, device, loss_func, val_dl, sanity_check)
+
         loss_history['val'].append(val_loss)
         metric_history['val'].append(val_metric.item())
         if multimode:
             metric_cls_history['val'].append(val_cls_metric)
 
-        if val_loss < best_loss:
-            best_loss = val_loss
-            best_model_wts = copy.deepcopy(model.state_dict())
-        #     if isinstance(model, torch.nn.DataParallel):
-        #     # model.module is the original model before DataParallel
-        #         torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
-        #     else:
-        #         torch.save(model.state_dict(), path2weights + f'{epoch}_weight.pt')
-
-        #     # torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
-        #     print('Copied best model weights!')
-
-        if isinstance(model, torch.nn.DataParallel):
-        # model.module is the original model before DataParallel
-            torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
+        if dist.is_initialized():
+            if dist.get_rank() == 0:
+                if val_loss < best_loss:
+                    best_loss = val_loss
+                    best_model_wts = copy.deepcopy(model.state_dict())
+                    torch.save(model.state_dict(), path2weights + f'/{epoch}_weight.pth')
+                print(f'Epoch {epoch}: Validation Loss: {val_loss}, Time: {(time.time() - start_time) / 60:.4f} min')
         else:
-            torch.save(model.state_dict(), path2weights + f'{epoch}_weight.pt')
-
-        # torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
+            if val_loss < best_loss:
+                best_loss = val_loss
+                best_model_wts = copy.deepcopy(model.state_dict())
+                if isinstance(model, torch.nn.DataParallel):
+                    torch.save(model.module.state_dict(), path2weights + f'{epoch}_weight.pt')
+                else:
+                    torch.save(model.state_dict(), path2weights + f'{epoch}_weight.pt')
+                
+            print(f'Epoch {epoch}: Validation Loss: {val_loss}, Time: {(time.time() - start_time) / 60:.4f} min')
 
         lr_scheduler.step(val_loss)
+        
         if current_lr != get_lr(opt):
             print('Loading best model weights!')
             model.load_state_dict(best_model_wts)
@@ -185,7 +139,6 @@ def loss_epoch_multi_label(model, device, loss_func, dataset_dl, sanity_check=Fa
     running_loss = 0.0
     running_metric = 0.0
     running_class_metrics = torch.zeros(dataset_dl.dataset.num_classes).to(device)
-    len_data = len(dataset_dl.dataset)
     num_classes = dataset_dl.dataset.num_classes
     b_count = 0
     with tqdm.tqdm(dataset_dl, unit="batch") as tepoch:
@@ -207,6 +160,18 @@ def loss_epoch_multi_label(model, device, loss_func, dataset_dl, sanity_check=Fa
 
             if sanity_check is True:
                 break
+    if dist.is_initialized():
+        loss_tensor = torch.tensor([running_loss], device=device)
+        metric_tensor = torch.tensor([running_metric], device=device)
+        class_metrics_tensor = running_class_metrics.clone()
+
+        dist.all_reduce(loss_tensor, op=dist.ReduceOp.SUM)
+        dist.all_reduce(metric_tensor, op=dist.ReduceOp.SUM)
+        dist.all_reduce(class_metrics_tensor, op=dist.ReduceOp.SUM)
+
+        running_loss = loss_tensor.item() / dist.get_world_size()
+        running_metric = metric_tensor.item() / dist.get_world_size()
+        running_class_metrics = class_metrics_tensor / dist.get_world_size()
 
     loss = running_loss / b_count
     metric = running_metric / b_count # 수정된 부분
@@ -235,6 +200,13 @@ def loss_epoch(model, device, loss_func, dataset_dl, sanity_check=False, opt=Non
 
             if sanity_check is True:
                 break
+    if dist.is_initialized():
+        loss_tensor = torch.tensor([running_loss], device=device)
+        metric_tensor = torch.tensor([running_metric], device=device)
+        dist.all_reduce(loss_tensor, op=dist.ReduceOp.SUM)
+        dist.all_reduce(metric_tensor, op=dist.ReduceOp.SUM)
+        running_loss = loss_tensor.item() / dist.get_world_size()
+        running_metric = metric_tensor.item() / dist.get_world_size()
 
     loss = running_loss / b_count
     metric = running_metric / b_count # 수정된 부분
@@ -244,7 +216,6 @@ def loss_epoch(model, device, loss_func, dataset_dl, sanity_check=False, opt=Non
 
 def metric_batch(output, target, device,num_classes):
     
-    # output: [batch_size, num_classes], target: [batch_size, num_classes]
     _, predicted = torch.max(output, 1)
     
     acc = Accuracy(average='micro', task='multiclass', num_classes=num_classes).to(device)
