@@ -6,7 +6,7 @@ test_ratio>>0.2
 img_dir>>./data/images2
 csv_path>>./csvs/TH_dataset.csv
 val_csv_path>>None
-train_name>>th_effinet_cus_
+train_name>>th_effinet_cus202407_
 weight>>None
 loss>>multi
 rearning_rate>>0.0005

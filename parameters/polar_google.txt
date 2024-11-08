@@ -1,0 +1,14 @@
+model>>googlenetv4
+img_size>>320
+epoch>>1000
+batch_size>>128
+test_ratio>>0.2
+img_dir>>./data/polar
+csv_path>>./csvs/polar.csv
+val_csv_path>>None
+train_name>>polar_googlenet_
+weight>>None
+loss>>softmax
+rearning_rate>>0.001
+rl_patience>>20
+dropout_rate>>0.0

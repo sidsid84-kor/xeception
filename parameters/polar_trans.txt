@@ -1,0 +1,14 @@
+model>>polar_transformer
+img_size>>1000
+epoch>>1000
+batch_size>>256
+test_ratio>>0.2
+img_dir>>./data/polar
+csv_path>>./csvs/polar.csv
+val_csv_path>>None
+train_name>>polarTRANS_
+weight>>None
+loss>>softmax
+rearning_rate>>0.0001
+rl_patience>>40
+dropout_rate>>0.0

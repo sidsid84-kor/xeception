@@ -133,6 +133,7 @@ class CustomDataset(Dataset):
         pic = cv2.linearPolar(pic, (pic.shape[0]/2,pic.shape[1]/2), pic.shape[0]/2, cv2.WARP_FILL_OUTLIERS)
         pic = cv2.rotate(pic, cv2.ROTATE_90_COUNTERCLOCKWISE)
         img_edge = pic[:160,:,:]
+        
         return img_edge
 
     def __getitem__(self, index: int):
@@ -156,6 +157,7 @@ class CustomDataset(Dataset):
                 
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+        #cv2.imwrite( 'sample/img.jpg', image)
         image /= 255.0 # 0 ~ 1로 스케일링
 
         target = np.array(records[self.class_list].values).astype(np.float32)

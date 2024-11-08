@@ -20,7 +20,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from torchinfo import summary
+from torchsummary import summary
 
 #train
 from torch import optim
@@ -130,7 +130,7 @@ elif SELECTED_MODEL == 'visionT':
 
 elif SELECTED_MODEL == 'efficientnet':
     from efficientnet import EfficientNet
-    model = EfficientNet.from_name('efficientnet-c1', num_classes = NUM_CLS)
+    model = EfficientNet.from_name('efficientnet-b8', num_classes = NUM_CLS)
 
 elif SELECTED_MODEL == 'th_googlenetv4':
     from TH_googlenet import *
@@ -169,10 +169,16 @@ elif SELECTED_MODEL == 'polar_lstm':
 
     val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_list= cls_list, img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE), polar_tranform=True)
     val_set.transforms = transformation
-    custom_size = True
 
+    sample_loader = DataLoader(train_set, batch_size=1, shuffle=True)
+    custom_size = True
     from polar import *
     model = CNN_LSTM_Model(num_classes = NUM_CLS)
+    # DataLoader를 통해 모델에 한 번 데이터를 통과시켜 초기화
+    for images, _ in sample_loader:
+        # 데이터를 모델에 통과시켜 초기화
+        print(images.shape)
+        break  # 하나의 배치만 처리하고 반복문 탈출
 
 
 elif SELECTED_MODEL == 'polar_transformer':
@@ -204,23 +210,22 @@ if weight_path != "None":
 ########################gpu개수 세고.. 병렬로 자동으로...뭐...기타..#
 num_device = torch.cuda.device_count()
 device_idx = []
-
 for i in range(num_device):
-    if torch.cuda.get_device_name(i) != "NVIDIA DGX Display":
-        device_idx.append(i)
+    if torch.cuda.get_device_name(i) == "NVIDIA DGX Display":
+        print(f"Device is not using : {torch.cuda.get_device_name(i)}")
     else:
-        print(f"Device {i} is not using for training: {torch.cuda.get_device_name(i)}")
+        device_idx.append(i)
 
-if len(device_idx) > 1:
-    print(f"Using {len(device_idx)} GPUs! IDs: {device_idx}")
-    model = model.to(device)
-    model = nn.DataParallel(model, device_ids=device_idx)
-elif len(device_idx) == 1:
-    print(f"Using single GPU at index {device_idx[0]}")
-    model = model.to('cuda:' + str(device_idx[0]))
+if torch.cuda.device_count() > 1:
+    print("Let's use",num_device, "GPUs!")
+    if torch.cuda.device_count() > 4: #for GCT
+        model=model.to('cuda:0')
+        model = nn.DataParallel(model, device_ids=device_idx)
+    else:
+        model = model.to(device=device)
+        model = nn.DataParallel(model)
 else:
-    print("No suitable GPU found. Using CPU.")
-    model = model.to('cpu')
+    model = model.to(device=device)
 
 def collate_fn(batch):
     images, targets = zip(*batch)
@@ -236,16 +241,13 @@ def collate_fn(batch):
     return images, targets
 
 
-
 ############################윈도우에서는 워커 주면안됨
 if os.name == "nt":
-    print('nt')
-    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, collate_fn=collate_fn )
-    val_loader = DataLoader(val_set, batch_size=int(BATCH_SIZE), collate_fn=collate_fn)
+    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE)
+    val_loader = DataLoader(val_set, batch_size=int(BATCH_SIZE//num_device))
 else:
-    print('ubuntu')
-    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, collate_fn=collate_fn , pin_memory = True)
-    val_loader = DataLoader(val_set, batch_size=int(BATCH_SIZE//num_device), collate_fn=collate_fn, pin_memory = True)
+    train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, collate_fn=collate_fn, num_workers=num_device)
+    val_loader = DataLoader(val_set, batch_size=int(BATCH_SIZE), collate_fn=collate_fn, num_workers=num_device)
     # train_loader = DataLoader(train_set, batch_size=BATCH_SIZE, num_workers=4*num_device)
     # val_loader = DataLoader(val_set, batch_size=int(BATCH_SIZE//num_device), num_workers=4)
 
@@ -271,11 +273,10 @@ params_train = {
 }
 
 if custom_size:
-    print("custom")
-    # summary(model, (images.size(1), images.size(2), images.size(3)), device=device.type)
+    print(images.shape)
+    #summary(model, (images.size(1), images.size(2), images.size(3)), device=device.type)
 else:
-    summary(model, input_size=(3, IMG_SIZE, IMG_SIZE))
-print('start')
+    summary(model, (3, IMG_SIZE, IMG_SIZE), device=device.type)
 
 traind_model, loss_hist, metric_hist, metric_cls_hist = train_val(model, device, params_train)
 

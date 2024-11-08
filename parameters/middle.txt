@@ -1,0 +1,13 @@
+model>>efficientnet
+img_size>>640
+epoch>>200
+batch_size>>4
+test_ratio>>0.2
+img_dir>>./data/middle_data
+csv_path>>./csvs/middle.csv
+val_csv_path>>None
+train_name>>th_effinet_cus202407_
+weight>>None
+loss>>softmax
+rearning_rate>>0.0005
+rl_patience>>10
