@@ -142,23 +142,22 @@ class CustomDataset(Dataset):
         image_id = self.image_ids[index]
         records = self.df[self.df['id'] == image_id]
         
-        image = cv2.imread(f'{self.image_dir}/{image_id}', cv2.IMREAD_COLOR)
+        image = Image.open(f'{self.image_dir}/{image_id}').convert("RGB")
             
         # OpenCV가 컬러를 저장하는 방식인 BGR을 RGB로 변환
         if self.img_resize and not self.polar_transform:
-            image = cv2.resize(image, self.img_dsize)
+            image = image.resize(self.img_dsize)
 
         if self.polar_transform:
+            image = cv2.imread(f'{self.image_dir}/{image_id}', cv2.IMREAD_COLOR)
             image = self.polar_transform_func(image)
             if self.img_resize:
                 new_width = self.img_dsize[0]
                 new_height = int(image.shape[0] * (new_width / image.shape[1]))
                 image = cv2.resize(image, (new_width, new_height))
+            image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
+            image /= 255.0 # 0 ~ 1로 스케일링
                 
-
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB).astype(np.float32)
-        #cv2.imwrite( 'sample/img.jpg', image)
-        image /= 255.0 # 0 ~ 1로 스케일링
 
         target = np.array(records[self.class_list].values).astype(np.float32)
         target = target.reshape(-1)

@@ -25,15 +25,64 @@ from torchsummary import summary
 #train
 from torch import optim
 from torch.optim.lr_scheduler import ReduceLROnPlateau
-
-
-
 from train import *
-
 from dataset import *
-
-
 import argparse
+
+def get_transforms(use_horizontal_flip=False,
+                   use_vertical_flip=False,
+                   use_rotation=False,
+                   use_color_jitter=False,
+                   img_size=640,
+                   brightness=0.3,
+                   contrast=0.3,
+                   saturation=0.3,
+                   rotation_degrees=359):
+    """
+    데이터 증강을 위한 변환(transform) 목록을 생성하는 함수.
+
+    Args:
+        use_horizontal_flip (bool): 좌우 반전을 사용할지 여부.
+        use_vertical_flip (bool): 상하 반전을 사용할지 여부.
+        use_rotation (bool): 회전을 사용할지 여부.
+        use_color_jitter (bool): 밝기, 대비, 채도 변화를 사용할지 여부.
+
+        brightness (float): 밝기 조절의 범위.
+        contrast (float): 대비 조절의 범위.
+        saturation (float): 채도 조절의 범위.
+
+        rotation_degrees (int): 랜덤 회전의 최대 각도.
+
+    Returns:
+        transforms.Compose: 변환이 적용된 Compose 객체.
+    """
+    transform_list = []
+
+    # 좌우 반전 추가
+    if use_horizontal_flip:
+        transform_list.append(transforms.RandomHorizontalFlip(p=0.5))
+
+    if use_vertical_flip:
+        transform_list.append(transforms.RandomVerticalFlip(p=0.5))
+
+    # 랜덤 회전 추가
+    if use_rotation:
+        transform_list.append(transforms.RandomRotation(degrees=rotation_degrees))
+
+    # Color Jitter 추가
+    if use_color_jitter:
+        transform_list.append(transforms.ColorJitter(
+            brightness=brightness,
+            contrast=contrast,
+            saturation=saturation
+        ))
+
+    # 텐서 변환 및 정규화 추가
+    transform_list.append(transforms.Resize(img_size))
+    transform_list.append(transforms.ToTensor())
+
+    # 변환 목록을 Compose로 반환
+    return transforms.Compose(transform_list)
 
 parser = argparse.ArgumentParser(description='parameters')
 parser.add_argument('--config', type=str, default="./parameters/base.txt", help='configed txt filepath')
@@ -56,6 +105,7 @@ with open(args.config) as f:
     Learning_RATE = float(lines[11].split(">>")[1])
     LR_patience = int(lines[12].split(">>")[1])
     DropOut_RATE = float(lines[13].split(">>")[1])
+    AUGMENTATION_METHOD = lines[14].split(">>")[1]
 
 print('SELECTED_MODEL',SELECTED_MODEL)
 print('IMG_SIZE',IMG_SIZE)
@@ -71,6 +121,7 @@ print('loss_MODE',LOSS_MODE)
 print('Learning_RATE',Learning_RATE)
 print('LR_patience',LR_patience)
 print('DropOut_RATE',DropOut_RATE)
+print('AUMENTATION_METHOD',AUGMENTATION_METHOD)
 
 def create_directory():
     i = 1
@@ -93,11 +144,24 @@ torch.cuda.empty_cache()
 
 custom_size = False
 
+# 증강 옵션 파싱
+augmentation_options = AUGMENTATION_METHOD.split(',')
+
+use_horizontal_flip = 'horizontal_flip' in augmentation_options
+use_vertical_flip = 'vertical_flip' in augmentation_options
+use_rotation = 'rotation' in augmentation_options
+use_color_jitter = 'color_jitter' in augmentation_options
+
 # define transformation
-transformation = transforms.Compose([
-                    transforms.ToTensor(),
-                    transforms.Resize(IMG_SIZE)
-])
+transformation = get_transforms(use_horizontal_flip=use_horizontal_flip,
+                                use_vertical_flip=use_vertical_flip,
+                                use_rotation=use_rotation,
+                                use_color_jitter=use_color_jitter,
+                                img_size=IMG_SIZE,
+                                brightness=0.3,
+                                contrast=0.3,
+                                saturation=0.3,
+                                rotation_degrees=359)
 
 
 train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path=CSV_PATH,img_dir=IMG_DIR, train_ratio=TRAIN_RATIO, randoms_state=42, val_csv_path=VAL_PATH)
