@@ -1,14 +1,14 @@
 model>>polar_lstm
 img_size>>1000
 epoch>>100
-batch_size>>256
+batch_size>>1024
 test_ratio>>0.2
 img_dir>>./data/polar
 csv_path>>./csvs/polar_60000.csv
 val_csv_path>>None
-train_name>>polarLSTM_
+train_name>>polarLSTM20240824_
 weight>>None
 loss>>softmax
-rearning_rate>>0.001
+rearning_rate>>0.0001
 rl_patience>>20
 dropout_rate>>0.0
