@@ -138,7 +138,7 @@ save_path = create_directory()
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
-
+os.environ['PYTORCH_CUDA_ALLOC_CONF'] = 'expandable_segments:True'
 torch.cuda.reset_max_memory_allocated(device=None)
 torch.cuda.empty_cache()
 
