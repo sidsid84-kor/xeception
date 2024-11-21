@@ -10,6 +10,7 @@ from torchvision import datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 import os
+import shutil
 import sys
 
 # display images
@@ -135,6 +136,8 @@ def create_directory():
         i += 1
 
 save_path = create_directory()
+
+shutil.copy(args.config, os.path.join(save_path, "result/parameter.txt") )
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 print(device)
