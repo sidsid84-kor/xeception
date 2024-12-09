@@ -177,7 +177,7 @@ val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_lis
 val_set.transforms = transformation
 
 #################################################모델선언!
-model_list = ['xeception', 'googlenetv4','visionT', 'efficientnet', 'th_googlenetv4', 'polar_gru', 'polar_lstm', 'polar_transformer']
+model_list = ['xeception', 'googlenetv4','visionT','sec_model', 'efficientnet', 'th_googlenetv4','th_efficientnet', 'polar_gru', 'polar_lstm', 'polar_transformer']
 if SELECTED_MODEL not in model_list:
     print("해당 모델은 없음")
     print(f"{model_list} 에서 선택해야함")
@@ -194,6 +194,10 @@ elif SELECTED_MODEL == 'googlenetv4':
 elif SELECTED_MODEL == 'visionT':
     from ViT import ViT
     model = ViT(num_classes=NUM_CLS)
+
+elif SELECTED_MODEL == 'sec_model':
+    from sec_model import *
+    model = InceptionV4_parallel(num_classes=NUM_CLS, dropout_prob=DropOut_RATE)
 
 elif SELECTED_MODEL == 'efficientnet':
     from efficientnet import EfficientNet
