@@ -9,7 +9,9 @@ from torchsummary import summary
 from torchvision import datasets
 import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
+from torchvision.transforms.functional import adjust_brightness, adjust_contrast, adjust_saturation
 import os
+import random
 import shutil
 import sys
 
@@ -38,25 +40,8 @@ def get_transforms(use_horizontal_flip=False,
                    brightness=0.3,
                    contrast=0.3,
                    saturation=0.3,
-                   rotation_degrees=359):
-    """
-    데이터 증강을 위한 변환(transform) 목록을 생성하는 함수.
-
-    Args:
-        use_horizontal_flip (bool): 좌우 반전을 사용할지 여부.
-        use_vertical_flip (bool): 상하 반전을 사용할지 여부.
-        use_rotation (bool): 회전을 사용할지 여부.
-        use_color_jitter (bool): 밝기, 대비, 채도 변화를 사용할지 여부.
-
-        brightness (float): 밝기 조절의 범위.
-        contrast (float): 대비 조절의 범위.
-        saturation (float): 채도 조절의 범위.
-
-        rotation_degrees (int): 랜덤 회전의 최대 각도.
-
-    Returns:
-        transforms.Compose: 변환이 적용된 Compose 객체.
-    """
+                   rotation_degrees=359,
+                   mean=0):
     transform_list = []
 
     # 좌우 반전 추가
@@ -68,6 +53,7 @@ def get_transforms(use_horizontal_flip=False,
 
     # 랜덤 회전 추가
     if use_rotation:
+        
         transform_list.append(transforms.RandomRotation(degrees=rotation_degrees))
 
     # Color Jitter 추가
@@ -77,6 +63,18 @@ def get_transforms(use_horizontal_flip=False,
             contrast=contrast,
             saturation=saturation
         ))
+    
+    #이거 클래스 만들어서 매번 호출해야 바뀌는거임 이렇게 하면 안됨.
+    #if use_color_jitter:
+    #    # 평균 0, 표준편차 0.3으로 설정된 정규분포에서 단일 샘플 값 생성
+    #    brightness_factor = torch.randn(1).item() * brightness + 1
+    #    contrast_factor = torch.randn(1).item() * contrast + 1
+    #    saturation_factor = torch.randn(1).item() * saturation + 1
+    #
+    #    
+    #    transform_list.append(transforms.Lambda(lambda img: adjust_brightness(img, brightness_factor)))
+    #    transform_list.append(transforms.Lambda(lambda img: adjust_contrast(img, contrast_factor)))
+    #    transform_list.append(transforms.Lambda(lambda img: adjust_saturation(img, saturation_factor)))
 
     # 텐서 변환 및 정규화 추가
     transform_list.append(transforms.Resize(img_size))
@@ -170,11 +168,21 @@ transformation = get_transforms(use_horizontal_flip=use_horizontal_flip,
 train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path=CSV_PATH,img_dir=IMG_DIR, train_ratio=TRAIN_RATIO, randoms_state=42, val_csv_path=VAL_PATH)
 
 
-train_set = CustomDataset(train_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_list= cls_list ,img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
+train_set = CustomDataset(train_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_list= cls_list ,img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE), save_image=False)
 train_set.transforms = transformation
 
+transformation_Val = get_transforms(use_horizontal_flip=False,
+                                use_vertical_flip=False,
+                                use_rotation=False,
+                                use_color_jitter=False,
+                                img_size=IMG_SIZE,
+                                brightness=0.3,
+                                contrast=0.3,
+                                saturation=0.3,
+                                rotation_degrees=359)
+
 val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_list= cls_list, img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE))
-val_set.transforms = transformation
+val_set.transforms = transformation_Val
 
 #################################################모델선언!
 model_list = ['xeception', 'googlenetv4','visionT','sec_model', 'efficientnet', 'th_googlenetv4','th_efficientnet', 'polar_gru', 'polar_lstm', 'polar_transformer']

@@ -12,24 +12,6 @@ from torch.nn import functional as F
 from torch.utils import model_zoo
 
 
-################################################################################
-# Help functions for model architecture
-################################################################################
-
-# GlobalParams and BlockArgs: Two namedtuples
-# Swish and MemoryEfficientSwish: Two implementations of the method
-# round_filters and round_repeats:
-#     Functions to calculate params for scaling model width and depth ! ! !
-# get_width_and_height_from_size and calculate_output_image_size
-# drop_connect: A structural design
-# get_same_padding_conv2d:
-#     Conv2dDynamicSamePadding
-#     Conv2dStaticSamePadding
-# get_same_padding_maxPool2d:
-#     MaxPool2dDynamicSamePadding
-#     MaxPool2dStaticSamePadding
-#     It's an additional function, not used in EfficientNet,
-#     but can be used in other model (such as EfficientDet).
 
 # Parameters for the entire model (stem, all blocks, and head)
 GlobalParams = collections.namedtuple('GlobalParams', [
@@ -209,22 +191,6 @@ def get_same_padding_conv2d(image_size=None):
 
 
 class Conv2dDynamicSamePadding(nn.Conv2d):
-    """2D Convolutions like TensorFlow, for a dynamic image size.
-       The padding is operated in forward function by calculating dynamically.
-    """
-
-    # Tips for 'SAME' mode padding.
-    #     Given the following:
-    #         i: width or height
-    #         s: stride
-    #         k: kernel size
-    #         d: dilation
-    #         p: padding
-    #     Output after Conv2d:
-    #         o = floor((i+p-((k-1)*d+1))/s+1)
-    # If o equals i, i = floor((i+p-((k-1)*d+1))/s+1),
-    # => p = (i-1)*s+((k-1)*d+1)-i
-
     def __init__(self, in_channels, out_channels, kernel_size, stride=1, dilation=1, groups=1, bias=True):
         super().__init__(in_channels, out_channels, kernel_size, stride, 0, dilation, groups, bias)
         self.stride = self.stride if len(self.stride) == 2 else [self.stride[0]] * 2
@@ -470,7 +436,7 @@ def efficientnet_params(model_name):
         'efficientnet-b7': (2.0, 3.1, 600, 0.5),
         'efficientnet-b8': (2.2, 3.6, 672, 0.5),
         'efficientnet-l2': (4.3, 5.3, 800, 0.5),
-        'efficientnet-c1': (2.0, 1.0, 640, 0.2),
+        'efficientnet-c1': (2.2, 1.0, 640, 0.2),
         
     }
     return params_dict[model_name]
@@ -559,19 +525,6 @@ VALID_MODELS = (
 
 
 class MBConvBlock(nn.Module):
-    """Mobile Inverted Residual Bottleneck Block.
-
-    Args:
-        block_args (namedtuple): BlockArgs, defined in utils.py.
-        global_params (namedtuple): GlobalParam, defined in utils.py.
-        image_size (tuple or list): [image_height, image_width].
-
-    References:
-        [1] https://arxiv.org/abs/1704.04861 (MobileNet v1)
-        [2] https://arxiv.org/abs/1801.04381 (MobileNet v2)
-        [3] https://arxiv.org/abs/1905.02244 (MobileNet v3)
-    """
-
     def __init__(self, block_args, global_params, image_size=None):
         super().__init__()
         self._block_args = block_args
@@ -614,16 +567,6 @@ class MBConvBlock(nn.Module):
         self._swish = MemoryEfficientSwish()
 
     def forward(self, inputs, drop_connect_rate=None):
-        """MBConvBlock's forward function.
-
-        Args:
-            inputs (tensor): Input tensor.
-            drop_connect_rate (bool): Drop connect rate (float, between 0 and 1).
-
-        Returns:
-            Output of this block after processing.
-        """
-
         # Expansion and Depthwise Convolution
         x = inputs
         if self._block_args.expand_ratio != 1:
@@ -657,47 +600,27 @@ class MBConvBlock(nn.Module):
         return x
 
     def set_swish(self, memory_efficient=True):
-        """Sets swish function as memory efficient (for training) or standard (for export).
-
-        Args:
-            memory_efficient (bool): Whether to use memory-efficient version of swish.
-        """
         self._swish = MemoryEfficientSwish() if memory_efficient else Swish()
 
 
 class TH_EfficientNet(nn.Module):
-    """EfficientNet model.
-       Most easily loaded with the .from_name or .from_pretrained methods.
 
-    Args:
-        blocks_args (list[namedtuple]): A list of BlockArgs to construct blocks.
-        global_params (namedtuple): A set of GlobalParams shared between blocks.
-
-    References:
-        [1] https://arxiv.org/abs/1905.11946 (EfficientNet)
-
-    Example:
-        >>> import torch
-        >>> from efficientnet.model import EfficientNet
-        >>> inputs = torch.rand(1, 3, 224, 224)
-        >>> model = EfficientNet.from_pretrained('efficientnet-b0')
-        >>> model.eval()
-        >>> outputs = model(inputs)
-    """
-
-    def __init__(self, blocks_args=None, global_params=None):
+    def __init__(self, num_classes = 6):
         super().__init__()
-        assert isinstance(blocks_args, list), 'blocks_args should be a list'
-        assert len(blocks_args) > 0, 'block args must be greater than 0'
-        self._global_params = global_params
-        self._blocks_args = blocks_args
+
+        self._global_params = GlobalParams(
+            width_coefficient=2.2, depth_coefficient=1.0, image_size=640, 
+            dropout_rate=0.2, num_classes=num_classes, batch_norm_momentum=0.99, 
+            batch_norm_epsilon=0.001, drop_connect_rate=0.2, depth_divisor=8, 
+            min_depth=None, include_top=True
+        )
 
         # Batch norm parameters
         bn_mom = 1 - self._global_params.batch_norm_momentum
         bn_eps = self._global_params.batch_norm_epsilon
 
         # Get stem static or dynamic convolution depending on image size
-        image_size = global_params.image_size
+        image_size = self._global_params.image_size
         Conv2d = get_same_padding_conv2d(image_size=image_size)
 
         # Stem
@@ -707,38 +630,173 @@ class TH_EfficientNet(nn.Module):
         self._bn0 = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
         image_size = calculate_output_image_size(image_size, 2)
 
-        # Build blocks
-        self._blocks = nn.ModuleList([])
-        for block_args in self._blocks_args:
+        self.MBblock_1 = MBConvBlock(
+            BlockArgs(num_repeat=1, kernel_size=3, stride=[1], expand_ratio=1, input_filters=72, output_filters=32, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
 
-            # Update block input and output filters based on depth multiplier.
-            block_args = block_args._replace(
-                input_filters=round_filters(block_args.input_filters, self._global_params),
-                output_filters=round_filters(block_args.output_filters, self._global_params),
-                num_repeat=round_repeats(block_args.num_repeat, self._global_params)
-            )
+        self.MBblock_2_1 = MBConvBlock(
+            BlockArgs(num_repeat=2, kernel_size=3, stride=[2], expand_ratio=6, input_filters=32, output_filters=56, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        image_size = [160, 160] # = calculate_output_image_size(image_size, 이전 stride)
 
-            # The first block needs to take care of stride and filter size increase.
-            self._blocks.append(MBConvBlock(block_args, self._global_params, image_size=image_size))
-            image_size = calculate_output_image_size(image_size, block_args.stride)
-            if block_args.num_repeat > 1:  # modify block_args to keep same output size
-                block_args = block_args._replace(input_filters=block_args.output_filters, stride=1)
-            for _ in range(block_args.num_repeat - 1):
-                self._blocks.append(MBConvBlock(block_args, self._global_params, image_size=image_size))
-                # image_size = calculate_output_image_size(image_size, block_args.stride)  # stride = 1
+        self.MBblock_2_2 = MBConvBlock(
+            BlockArgs(num_repeat=2, kernel_size=3, stride=1, expand_ratio=6, input_filters=56, output_filters=56, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+
+        self.no_etc_output_linear = nn.Linear(56, 2)
+
+        self.MBblock_3_1 = MBConvBlock(
+            BlockArgs(num_repeat=2, kernel_size=5, stride=[2], expand_ratio=6, input_filters=56, output_filters=88, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.MBblock_3_1_1 = MBConvBlock(
+            BlockArgs(num_repeat=2, kernel_size=5, stride=[2], expand_ratio=6, input_filters=56, output_filters=88, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        image_size = [80, 80] # = calculate_output_image_size(image_size, 이전 stride [2])
+
+        self.MBblock_3_2 = MBConvBlock(
+            BlockArgs(num_repeat=2, kernel_size=5, stride=1, expand_ratio=6, input_filters=88, output_filters=88, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        
+
+        self.MBblock_4_1 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=3, stride=[2], expand_ratio=6, input_filters=88, output_filters=176, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+
+        self.MBblock_3_2_1 = MBConvBlock(
+            BlockArgs(num_repeat=2, kernel_size=5, stride=1, expand_ratio=6, input_filters=88, output_filters=88, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        
+
+        self.MBblock_4_1_1 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=3, stride=[2], expand_ratio=6, input_filters=88, output_filters=176, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        image_size = [40, 40] # = calculate_output_image_size(image_size, 이전 stride)
+
+        self.MBblock_4_2 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=3, stride=1, expand_ratio=6, input_filters=176, output_filters=176, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.MBblock_4_3 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=3, stride=1, expand_ratio=6, input_filters=176, output_filters=176, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        
+
+        self.MBblock_5_1 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=5, stride=[1], expand_ratio=6, input_filters=176, output_filters=248, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+
+        self.MBblock_5_2 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=5, stride=1, expand_ratio=6, input_filters=248, output_filters=248, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.MBblock_5_3 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=5, stride=1, expand_ratio=6, input_filters=248, output_filters=248, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        
+        self.burr_broken_output_linear = nn.Linear(176, 2)
+
+        self.MBblock_6_1 = MBConvBlock(
+            BlockArgs(num_repeat=4, kernel_size=5, stride=[2], expand_ratio=6, input_filters=248, output_filters=424, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+
+        self.MBblock_4_2_1 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=3, stride=1, expand_ratio=6, input_filters=176, output_filters=176, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.MBblock_4_3_1 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=3, stride=1, expand_ratio=6, input_filters=176, output_filters=176, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        
+
+        self.MBblock_5_1_1 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=5, stride=[1], expand_ratio=6, input_filters=176, output_filters=248, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+
+        self.MBblock_5_2_1 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=5, stride=1, expand_ratio=6, input_filters=248, output_filters=248, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.MBblock_5_3_1 = MBConvBlock(
+            BlockArgs(num_repeat=3, kernel_size=5, stride=1, expand_ratio=6, input_filters=248, output_filters=248, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        
+
+        self.MBblock_6_1_1 = MBConvBlock(
+            BlockArgs(num_repeat=4, kernel_size=5, stride=[2], expand_ratio=6, input_filters=248, output_filters=424, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        image_size = [20, 20] # = calculate_output_image_size(image_size, 이전 stride)
+
+        self.MBblock_6_2 = MBConvBlock(
+            BlockArgs(num_repeat=4, kernel_size=5, stride=1, expand_ratio=6, input_filters=424, output_filters=424, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.MBblock_6_3 = MBConvBlock(
+            BlockArgs(num_repeat=4, kernel_size=5, stride=1, expand_ratio=6, input_filters=424, output_filters=424, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.MBblock_6_4 = MBConvBlock(
+            BlockArgs(num_repeat=4, kernel_size=5, stride=1, expand_ratio=6, input_filters=424, output_filters=424, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        
+
+        self.MBblock_7 = MBConvBlock(
+            BlockArgs(num_repeat=1, kernel_size=3, stride=[1], expand_ratio=6, input_filters=424, output_filters=704, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.b_edge_linear = nn.Linear(2816, 1)
+
+        self.MBblock_6_2_1 = MBConvBlock(
+            BlockArgs(num_repeat=4, kernel_size=5, stride=1, expand_ratio=6, input_filters=424, output_filters=424, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.MBblock_6_3_1 = MBConvBlock(
+            BlockArgs(num_repeat=4, kernel_size=5, stride=1, expand_ratio=6, input_filters=424, output_filters=424, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        self.MBblock_6_4_1 = MBConvBlock(
+            BlockArgs(num_repeat=4, kernel_size=5, stride=1, expand_ratio=6, input_filters=424, output_filters=424, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
+        
+
+        self.MBblock_7_1 = MBConvBlock(
+            BlockArgs(num_repeat=1, kernel_size=3, stride=[1], expand_ratio=6, input_filters=424, output_filters=704, se_ratio=0.25, id_skip=True),
+            self._global_params, image_size
+        )
 
         # Head
-        in_channels = block_args.output_filters  # output of final block
+        in_channels = 704 #block_args.output_filters  # output of final block
         out_channels = round_filters(1280, self._global_params)
         Conv2d = get_same_padding_conv2d(image_size=image_size)
         self._conv_head = Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
         self._bn1 = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
+        self._conv_head_1 = Conv2d(in_channels, out_channels, kernel_size=1, bias=False)
+        self._bn1_1 = nn.BatchNorm2d(num_features=out_channels, momentum=bn_mom, eps=bn_eps)
 
         # Final linear layer
         self._avg_pooling = nn.AdaptiveAvgPool2d(1)
         if self._global_params.include_top:
             self._dropout = nn.Dropout(self._global_params.dropout_rate)
-            self._fc = nn.Linear(out_channels, self._global_params.num_classes)
+            # self._fc = nn.Linear(out_channels, self._global_params.num_classes)
+            self._fc = nn.Linear(out_channels, 1)
 
         # set activation to memory efficient swish by default
         self._swish = MemoryEfficientSwish()
@@ -800,111 +858,82 @@ class TH_EfficientNet(nn.Module):
 
         return endpoints
 
-    def extract_features(self, inputs):
-        """use convolution layer to extract feature .
-
-        Args:
-            inputs (tensor): Input tensor.
-
-        Returns:
-            Output of the final convolution
-            layer in the efficientnet model.
-        """
-        # Stem
-        x = self._swish(self._bn0(self._conv_stem(inputs)))
-
-        # Blocks
-        for idx, block in enumerate(self._blocks):
-            drop_connect_rate = self._global_params.drop_connect_rate
-            if drop_connect_rate:
-                drop_connect_rate *= float(idx) / len(self._blocks)  # scale drop connect_rate
-            x = block(x, drop_connect_rate=drop_connect_rate)
-
-        # Head
-        x = self._swish(self._bn1(self._conv_head(x)))
-
-        return x
 
     def forward(self, inputs):
-        """EfficientNet's forward function.
-           Calls extract_features to extract features, applies final linear layer, and returns logits.
+        outputs = []
+        x1 = self._swish(self._bn0(self._conv_stem(inputs)))
 
-        Args:
-            inputs (tensor): Input tensor.
+        # Blocks
+        x2 = self.MBblock_1(x1)
 
-        Returns:
-            Output of this model after processing.
-        """
-        # Convolution layers
-        x = self.extract_features(inputs)
+        x3 = self.MBblock_2_1(x2)
+        x4 = self.MBblock_2_2(x3)
+
+        no_etc_output = self._avg_pooling(x4)
+        no_etc_output = torch.flatten(no_etc_output, 1)
+        no_etc_output = self.no_etc_output_linear(no_etc_output)
+        outputs.append(no_etc_output)
+
+        x5 = self.MBblock_3_1(x4)
+        x6 = self.MBblock_3_2(x5)
+
+        x7 = self.MBblock_4_1(x6)
+        x8 = self.MBblock_4_2(x7)
+        x9 = self.MBblock_4_3(x8)
+
+        burr_broken_output = self._avg_pooling(x9)
+        burr_broken_output = torch.flatten(burr_broken_output, 1)
+        burr_broken_output = self.burr_broken_output_linear(burr_broken_output)
+        outputs.append(burr_broken_output)
+
+        x10 = self.MBblock_5_1(x9)
+        x11 = self.MBblock_5_2(x10)
+        x12 = self.MBblock_5_3(x11)
+
+        x13 = self.MBblock_6_1(x12)
+        #x14 = self.MBblock_6_2(x13)
+        #x15 = self.MBblock_6_3(x14)
+        x16 = self.MBblock_6_4(x13)
+
+        x17 = self.MBblock_7(x16)
+
+        # Head
+        x18 = self._swish(self._bn1(self._conv_head(x17)))
         # Pooling and final linear layer
-        x = self._avg_pooling(x)
-        if self._global_params.include_top:
-            x = x.flatten(start_dim=1)
-            x = self._dropout(x)
-            x = self._fc(x)
-        return x
+        b_edge_output = self._avg_pooling(x18)
+        b_edge_output = torch.flatten(b_edge_output, 1)
+        #b_edge_output = self._dropout(b_edge_output)
+        b_edge_output = self.b_edge_linear(b_edge_output)
+        outputs.append(b_edge_output)
 
-    @classmethod
-    def from_name(cls, model_name, in_channels=3, **override_params):
-        """Create an efficientnet model according to name.
+        x5_1 = self.MBblock_3_1_1(x4)
+        x6_1 = self.MBblock_3_2_1(x5_1)
 
-        Args:
-            model_name (str): Name for efficientnet.
-            in_channels (int): Input data's channel number.
-            override_params (other key word params):
-                Params to override model's global_params.
-                Optional key:
-                    'width_coefficient', 'depth_coefficient',
-                    'image_size', 'dropout_rate',
-                    'num_classes', 'batch_norm_momentum',
-                    'batch_norm_epsilon', 'drop_connect_rate',
-                    'depth_divisor', 'min_depth'
+        x7_1 = self.MBblock_4_1_1(x6_1)
+        x8_1 = self.MBblock_4_2_1(x7_1)
+        x9_1 = self.MBblock_4_3_1(x8_1)
 
-        Returns:
-            An efficientnet model.
-        """
-        cls._check_model_name_is_valid(model_name)
-        blocks_args, global_params = get_model_params(model_name, override_params)
-        model = cls(blocks_args, global_params)
-        model._change_in_channels(in_channels)
-        return model
+        x10_1 = self.MBblock_5_1_1(x9_1)
+        x11_1 = self.MBblock_5_2_1(x10_1)
+        x12_1 = self.MBblock_5_3_1(x11_1)
+
+        x13_1 = self.MBblock_6_1_1(x12_1)
+        #x14_1 = self.MBblock_6_2_1(x13_1)
+        #x15_1 = self.MBblock_6_3_1(x14_1)
+        x16_1 = self.MBblock_6_4_1(x13_1)
+
+        x17_1 = self.MBblock_7_1(x16_1)
+
+        # Head
+        x18_1 = self._swish(self._bn1_1(self._conv_head_1(x17_1)))
+        b_bubble_output = self._avg_pooling(x18_1)
+        b_bubble_output = torch.flatten(b_bubble_output, 1)
+        #b_bubble_output = self._dropout(b_bubble_output)
+        b_bubble_output = self._fc(b_bubble_output)
+        outputs.append(b_bubble_output)
+
+        final_outputs = torch.cat(outputs, dim=1)
+
+        return final_outputs
 
 
-    @classmethod
-    def get_image_size(cls, model_name):
-        """Get the input image size for a given efficientnet model.
-
-        Args:
-            model_name (str): Name for efficientnet.
-
-        Returns:
-            Input image size (resolution).
-        """
-        cls._check_model_name_is_valid(model_name)
-        _, _, res, _ = efficientnet_params(model_name)
-        return res
-
-    @classmethod
-    def _check_model_name_is_valid(cls, model_name):
-        """Validates model name.
-
-        Args:
-            model_name (str): Name for efficientnet.
-
-        Returns:
-            bool: Is a valid name or not.
-        """
-        if model_name not in VALID_MODELS:
-            raise ValueError('model_name should be one of: ' + ', '.join(VALID_MODELS))
-
-    def _change_in_channels(self, in_channels):
-        """Adjust model's first convolution layer to in_channels, if in_channels not equals 3.
-
-        Args:
-            in_channels (int): Input data's channel number.
-        """
-        if in_channels != 3:
-            Conv2d = get_same_padding_conv2d(image_size=self._global_params.image_size)
-            out_channels = round_filters(32, self._global_params)
-            self._conv_stem = Conv2d(in_channels, out_channels, kernel_size=3, stride=2, bias=False)

@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from torch.utils.data import DataLoader, Dataset
 from PIL import Image
+from torchvision.utils import save_image
 import tqdm
 
 #image broken check
@@ -108,7 +109,7 @@ def get_data_from_csv_TH(csv_path, train_ratio, img_dir, randoms_state=42):
 
 class CustomDataset(Dataset):
 
-    def __init__(self, dataframe, image_dir, num_classes, class_list, transforms=None, img_resize = False, img_dsize = (640,640), polar_tranform = False):
+    def __init__(self, dataframe, image_dir, num_classes, class_list, transforms=None, img_resize = False, img_dsize = (640,640), polar_tranform = False, save_image=False):
         super().__init__()
         
         self.image_ids = dataframe['id'].unique() # 이미지 고유 ID
@@ -120,6 +121,8 @@ class CustomDataset(Dataset):
         self.class_list = class_list
         self.num_classes = num_classes
         self.polar_transform = polar_tranform
+        self.save_image = save_image
+        self.save_dir = './sameple_images'
 
     #데이터 길이 검증
     def validate_data_records(self):
@@ -163,6 +166,14 @@ class CustomDataset(Dataset):
         target = target.reshape(-1)
         if self.transforms is not None:
             image = self.transforms(image)
+        if self.save_image:
+          save_path = os.path.join(self.save_dir, f"{image_id}.png")
+          if not os.path.exists(self.save_dir):
+              os.makedirs(self.save_dir)
+          if isinstance(image, np.ndarray):
+              cv2.imwrite(save_path, cv2.cvtColor(image * 255, cv2.COLOR_RGB2BGR))
+          else:
+              save_image(image, save_path)
 
         return image, target
 
