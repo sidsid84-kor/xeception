@@ -25,7 +25,7 @@ def train_val(model, device, params):
     loss_mode = params['loss_mode']
     if loss_mode == 'multi':
         multimode = True
-    elif loss_mode == 'softmax':
+    else:
         multimode = False
 
     loss_history = {'train': [], 'val': []}
@@ -215,10 +215,15 @@ def loss_epoch(model, device, loss_func, dataset_dl, sanity_check=False, opt=Non
 
 
 def metric_batch(output, target, device,num_classes):
-    
-    _, predicted = torch.max(output, 1)
-    
-    acc = Accuracy(average='micro', task='multiclass', num_classes=num_classes).to(device)
+    if num_classes == 1:
+        # 이진 분류 (Binary classification)
+        output = torch.sigmoid(output)
+        predicted = torch.round(output)
+        acc = Accuracy(average='micro', task='binary').to(device)
+    else:
+        _, predicted = torch.max(output, 1)
+        
+        acc = Accuracy(average='micro', task='multiclass', num_classes=num_classes).to(device)
     acc.update(predicted, target)
     accuracy = acc.compute()
     
@@ -227,10 +232,13 @@ def metric_batch(output, target, device,num_classes):
 
 def loss_batch(loss_func, output, target, device, num_classes, opt=None):
     # output: [batch_size, num_classes], target: [batch_size, num_classes]
-    
-    target = torch.argmax(target, dim=1)
-    
-    loss_b = loss_func(output, target)
+    if num_classes == 1:
+        assert output.shape == target.shape, "Output and target must have the same shape for BCEWithLogitsLoss"
+        loss_b = loss_func(output, target)
+    else:
+        target = torch.argmax(target, dim=1)
+        
+        loss_b = loss_func(output, target)
     metric_b = metric_batch(output, target, device, num_classes)
 
     if opt is not None:

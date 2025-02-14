@@ -164,8 +164,11 @@ transformation = get_transforms(use_horizontal_flip=use_horizontal_flip,
                                 saturation=0.3,
                                 rotation_degrees=359)
 
-
-train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path=CSV_PATH,img_dir=IMG_DIR, train_ratio=TRAIN_RATIO, randoms_state=42, val_csv_path=VAL_PATH)
+is_binary = True if LOSS_MODE == "binary" else False
+train_df, val_df, NUM_CLS, cls_list = get_data_from_csv(csv_path=CSV_PATH,img_dir=IMG_DIR, train_ratio=TRAIN_RATIO, randoms_state=42, val_csv_path=VAL_PATH, is_binary=is_binary)
+if LOSS_MODE == 'binary' and NUM_CLS > 1:
+    print("Error: Binary 는 클래스가 1개 여야함")
+    sys.exit(1)  # Exit the program with an error code
 
 
 train_set = CustomDataset(train_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_list= cls_list ,img_resize=True, img_dsize=(IMG_SIZE,IMG_SIZE), save_image=False)
@@ -185,7 +188,7 @@ val_set = CustomDataset(val_df,num_classes=NUM_CLS, image_dir=IMG_DIR, class_lis
 val_set.transforms = transformation_Val
 
 #################################################모델선언!
-model_list = ['xeception', 'googlenetv4','visionT','sec_model', 'efficientnet', 'th_googlenetv4','th_efficientnet', 'polar_gru', 'polar_lstm', 'polar_transformer']
+model_list = ['xeception', 'googlenetv4','visionT','sec_model', 'efficientnet', 'th_googlenetv4','th_efficientnet', 'polar_gru', 'polar_lstm', 'polar_transformer', 'sec_effinet']
 if SELECTED_MODEL not in model_list:
     print("해당 모델은 없음")
     print(f"{model_list} 에서 선택해야함")
@@ -206,6 +209,10 @@ elif SELECTED_MODEL == 'visionT':
 elif SELECTED_MODEL == 'sec_model':
     from sec_model import *
     model = InceptionV4_parallel(num_classes=NUM_CLS, dropout_prob=DropOut_RATE)
+    
+elif SELECTED_MODEL == 'sec_effinet':
+    from sec_model import *
+    model = Sec_Effinet(num_classes=NUM_CLS, dropout_rate=DropOut_RATE, image_size=IMG_SIZE)
 
 elif SELECTED_MODEL == 'efficientnet':
     from efficientnet import EfficientNet
@@ -336,6 +343,8 @@ if LOSS_MODE == 'multi':
     loss_func = nn.MultiLabelSoftMarginLoss()
 elif LOSS_MODE == 'softmax':
     loss_func = nn.CrossEntropyLoss()
+elif LOSS_MODE == 'binary':
+    loss_func = nn.BCEWithLogitsLoss()
 opt = optim.Adam(model.parameters(), lr=Learning_RATE)
 lr_scheduler = ReduceLROnPlateau(opt, mode='min', factor=0.1, patience=LR_patience)
 

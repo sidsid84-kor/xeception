@@ -42,16 +42,23 @@ def validate_dataset(df, img_dir):
         print("Not founded images (Num) : ",count)
     return df
 
-def get_data_from_csv(csv_path, train_ratio, img_dir, randoms_state=42, val_csv_path=None):
+def get_data_from_csv(csv_path, train_ratio, img_dir, randoms_state=42, val_csv_path=None, is_binary=False):
     ###### columns example : ['id', 'good', 'b_edge', 'burr', 'borken', 'b_bubble', 'etc', 'no_lens']
+    
     val_csv_path = None if val_csv_path == 'None' else val_csv_path
     if val_csv_path is not None:
         train_df = pd.read_csv(csv_path)
+        if is_binary:
+            train_df = train_df[[train_df.columns[0], train_df.columns[-1]]]
         train_df = validate_dataset(df=train_df, img_dir=img_dir)
         val_df = pd.read_csv(val_csv_path)
+        if is_binary:
+            val_df = val_df[[val_df.columns[0], val_df.columns[-1]]]
         val_df = validate_dataset(df=val_df, img_dir=img_dir)
     else:
         df = pd.read_csv(csv_path)
+        if is_binary:
+            df = df[[df.columns[0], df.columns[-1]]]
         df = validate_dataset(df=df,img_dir=img_dir)
         train_df , val_df = train_test_split(df, test_size=train_ratio, random_state=randoms_state)
 
