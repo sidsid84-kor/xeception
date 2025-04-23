@@ -204,7 +204,7 @@ elif SELECTED_MODEL == 'googlenetv4':
 
 elif SELECTED_MODEL == 'visionT':
     from ViT import ViT
-    model = ViT(num_classes=NUM_CLS)
+    model = ViT(num_classes=NUM_CLS, img_size=IMG_SIZE)
 
 elif SELECTED_MODEL == 'sec_model':
     from sec_model import *
@@ -265,7 +265,7 @@ elif SELECTED_MODEL == 'polar_lstm':
         # 데이터를 모델에 통과시켜 초기화
         print(images.shape)
         break  # 하나의 배치만 처리하고 반복문 탈출
-
+    
 
 elif SELECTED_MODEL == 'polar_transformer':
     transformation = transforms.Compose([

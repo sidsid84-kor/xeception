@@ -6,6 +6,43 @@ from PIL import Image
 import torchvision.transforms as transforms
 from PIL import Image
 
+def linear_polar_gpu(input_img, center):
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    input_img = input_img.to(device)
+    
+    size = input_img.shape[2]  # width와 height가 같다고 가정
+    max_radius = size/2  # 이미지 중심으로부터 구석까지의 최대 거리
+
+    # 각도와 반경을 계산할 그리드 생성
+    theta, r = torch.meshgrid(
+        torch.linspace(0, 2 * np.pi, size, device=device),
+        torch.linspace(0, max_radius, size, device=device),
+        indexing='ij')
+    x = r * torch.cos(theta) + center[0]
+    y = r * torch.sin(theta) + center[1]
+
+    # Normalize to -1 to 1 for grid_sample
+    x_normalized = (x - size / 2) / (size / 2)
+    y_normalized = (y - size / 2) / (size / 2)
+    grid = torch.stack((x_normalized, y_normalized), dim=-1).unsqueeze(0)
+
+    # grid_sample을 사용하여 극좌표 이미지 생성
+    polar_img = F.grid_sample(input_img, grid, mode='bilinear', padding_mode='border', align_corners=False)
+    polar_img = polar_img.rot90(1, [2, 3])
+
+    return polar_img
+
+def devide_img(img_tensor):
+    # img_tensor는 [B, C, H, W] 형식의 텐서라고 가정 (배치 크기, 채널, 높이, 너비)
+    # 이미지의 상단 부분 (0부터 160픽셀까지의 행)
+    img_top = img_tensor[:, :, :160, :]
+    
+    # 이미지의 나머지 하단 부분 (160픽셀 이후부터 끝까지의 행)
+    img_bottom = img_tensor[:, :, 160:, :]
+    
+    return img_top, img_bottom
+
+
 def tensor_to_image(tensor, file_path):
     tensor = tensor.cpu().detach()  # GPU에서 계산된 텐서를 CPU로 이동
     tensor = tensor.squeeze(0)  # 첫 번째 차원이 배치라면 제거
